@@ -8,7 +8,7 @@ data class Indicator(
     val displayValue: String,
     val canonicalValue: String,
     val defangedValue: String,
-    val source: IndicatorSource,
+    val source: IndicatorSource? = null,
     val confidence: Confidence,
     val context: String? = null,
     val classification: List<String> = emptyList()

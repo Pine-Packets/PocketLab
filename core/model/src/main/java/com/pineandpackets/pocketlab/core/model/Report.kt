@@ -90,6 +90,8 @@ data class ApkInfo(
     val compileSdk: Int?,
     val applicationLabel: String?,
     val debuggable: Boolean,
+    val backupAllowed: Boolean = false,
+    val usesCleartextTraffic: Boolean = false,
     val permissions: List<PermissionInfo> = emptyList(),
     val components: List<ComponentInfo> = emptyList(),
     val signingInfo: SigningInfo? = null

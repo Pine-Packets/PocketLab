@@ -29,7 +29,7 @@ class ReportExporter {
         
         sb.appendLine("## Source")
         sb.appendLine()
-        sb.appendLine("- **Display Name:** ${report.source.displayName}")
+        sb.appendLine("- **Display Name:** ${escapeMarkdown(report.source.displayName)}")
         sb.appendLine("- **SHA-256:** `${report.source.sha256}`")
         sb.appendLine()
         
@@ -94,6 +94,7 @@ class ReportExporter {
         sb.appendLine("  <p><strong>Report ID:</strong> ${escapeHtml(report.reportId)}</p>")
         sb.appendLine("  <p><strong>Case ID:</strong> ${escapeHtml(report.caseId)}</p>")
         sb.appendLine("  <p><strong>Created:</strong> ${escapeHtml(report.createdAt)}</p>")
+        sb.appendLine("  <p><strong>Source:</strong> ${escapeHtml(report.source.displayName)}</p>")
         
         sb.appendLine("  <h2>Summary</h2>")
         sb.appendLine("  <ul>")
@@ -128,5 +129,16 @@ class ReportExporter {
             .replace(">", "&gt;")
             .replace("\"", "&quot;")
             .replace("'", "&#39;")
+    }
+    
+    private fun escapeMarkdown(text: String): String {
+        return text
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("`", "\\`")
+            .replace("*", "\\*")
+            .replace("_", "\\_")
+            .replace("[", "\\[")
+            .replace("]", "\\]")
     }
 }

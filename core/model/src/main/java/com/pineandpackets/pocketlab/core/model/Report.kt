@@ -350,3 +350,12 @@ data class IntegrityBlock(
     val rulePackVersion: String,
     val sampleRetained: Boolean
 )
+
+@Serializable
+data class RedactionSettings(
+    val redactPossibleSecrets: Boolean = true,
+    val redactIocValues: Boolean = false,
+    val includeSourceFilename: Boolean = true,
+    val includeAnalystNotes: Boolean = false,
+    val maxStringLength: Int = 500
+)

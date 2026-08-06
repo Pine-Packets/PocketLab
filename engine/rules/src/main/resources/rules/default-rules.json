@@ -253,5 +253,24 @@
     ],
     "limitations": ["Accessibility services are legitimate for assistive technology", "Overlay permission may be used for legitimate floating UI"],
     "recommendations": ["Verify publisher and purpose before enabling accessibility", "Review overlay usage"]
+  },
+  {
+    "id": "SIGNING-DEBUG-CERTIFICATE",
+    "title": "Debug Signing Certificate",
+    "category": "signing",
+    "severity": "HIGH",
+    "confidence": "HIGH",
+    "description": "App is signed with an Android debug certificate, which is not secure for production",
+    "analystDescription": "The application is signed with the Android debug signing certificate. Debug certificates are generated automatically by the Android SDK and are not suitable for production releases because they are shared across all debug builds and do not provide package identity assurance.",
+    "whenClause": {
+      "any": [
+        {"fact": "SIGNING_DEBUG_CERTIFICATE"}
+      ]
+    },
+    "evidence": [
+      {"type": "CERTIFICATE_FIELD", "excerpt": "CN=Android Debug"}
+    ],
+    "limitations": ["Debug builds are normal during development"],
+    "recommendations": ["Sign production releases with a private release certificate", "Do not distribute debug builds"]
   }
 ]

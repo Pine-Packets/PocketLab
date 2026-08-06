@@ -160,7 +160,8 @@ data class CertificateInfo(
     val algorithm: String,
     val keySize: Int,
     val fingerprint: String,
-    val selfSigned: Boolean
+    val selfSigned: Boolean,
+    val debugCertificate: Boolean = false
 )
 
 @Serializable

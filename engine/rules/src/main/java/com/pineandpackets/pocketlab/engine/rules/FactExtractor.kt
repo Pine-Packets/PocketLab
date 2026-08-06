@@ -81,6 +81,13 @@ class FactExtractor {
             }
         }
 
+        // Extract signing facts
+        apkInfo.signingInfo?.certificates?.forEach { cert ->
+            if (cert.debugCertificate) {
+                facts.add(Fact("SIGNING_DEBUG_CERTIFICATE", cert.fingerprint, "META-INF/"))
+            }
+        }
+
         // Extract manifest flag facts
         if (apkInfo.debuggable) {
             facts.add(Fact("MANIFEST_DEBUGGABLE", "true", "AndroidManifest.xml"))

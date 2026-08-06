@@ -30,7 +30,8 @@ class SigningAnalyzer {
                     algorithm = cert.sigAlgName,
                     keySize = (cert.publicKey as? java.security.interfaces.RSAPublicKey)?.modulus?.bitLength() ?: 0,
                     fingerprint = calculateFingerprint(cert),
-                    selfSigned = cert.subjectX500Principal == cert.issuerX500Principal
+                    selfSigned = cert.subjectX500Principal == cert.issuerX500Principal,
+                    debugCertificate = isDebugCertificate(cert)
                 )
             }
             
@@ -146,6 +147,17 @@ class SigningAnalyzer {
         val encoded = cert.encoded
         val hashBytes = digest.digest(encoded)
         return hashBytes.joinToString(":") { "%02X".format(it) }
+    }
+    
+    /**
+     * Detect whether a certificate is the well-known Android debug signing certificate.
+     * Debug certificates are self-signed by Android and must never be used for production releases.
+     */
+    private fun isDebugCertificate(cert: X509Certificate): Boolean {
+        val subject = cert.subjectX500Principal.name
+        return subject.contains("CN=Android Debug") ||
+            (subject.contains("O=Android") && subject.contains("C=US") &&
+                cert.subjectX500Principal == cert.issuerX500Principal)
     }
     
     private data class ApkSigningBlock(

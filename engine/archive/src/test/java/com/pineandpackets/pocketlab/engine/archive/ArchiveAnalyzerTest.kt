@@ -96,6 +96,71 @@ class ArchiveAnalyzerTest {
         tempFile.delete()
     }
     
+    @Test
+    fun `analyze archive with password parameter`() {
+        val tempFile = createTestZip(
+            "file1.txt" to "content1"
+        )
+        
+        val result = analyzer.analyzeArchive(tempFile, password = "test")
+        
+        assertTrue(result.isSuccess)
+        val analysis = result.getOrThrow()
+        assertFalse(analysis.passwordRequired)
+        
+        tempFile.delete()
+    }
+    
+    @Test
+    fun `non-encrypted archive does not require password`() {
+        val tempFile = createTestZip(
+            "file1.txt" to "content1",
+            "file2.txt" to "content2"
+        )
+        
+        val result = analyzer.analyzeArchive(tempFile)
+        
+        assertTrue(result.isSuccess)
+        val analysis = result.getOrThrow()
+        assertFalse(analysis.passwordRequired)
+        assertFalse(analysis.passwordAccepted)
+        assertFalse(analysis.isEncrypted)
+        
+        tempFile.delete()
+    }
+    
+    @Test
+    fun `analyzeArchiveWithPasswordAttempts succeeds for unencrypted archive`() {
+        val tempFile = createTestZip(
+            "file1.txt" to "content1"
+        )
+        
+        val result = analyzer.analyzeArchiveWithPasswordAttempts(tempFile, listOf("infected", "password"))
+        
+        assertTrue(result.isSuccess)
+        val analysis = result.getOrThrow()
+        assertFalse(analysis.passwordRequired)
+        
+        tempFile.delete()
+    }
+    
+    @Test
+    fun `password is not logged or persisted in result`() {
+        val tempFile = createTestZip(
+            "file1.txt" to "content1"
+        )
+        
+        val result = analyzer.analyzeArchive(tempFile, password = "secret_password_123")
+        
+        assertTrue(result.isSuccess)
+        val analysis = result.getOrThrow()
+        
+        val resultString = analysis.toString()
+        assertFalse(resultString.contains("secret_password_123"))
+        
+        tempFile.delete()
+    }
+    
     private fun createTestZip(vararg entries: Pair<String, String>): File {
         return createTestZip(entries.toMap())
     }

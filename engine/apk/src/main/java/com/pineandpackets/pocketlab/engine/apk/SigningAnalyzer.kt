@@ -39,7 +39,7 @@ class SigningAnalyzer {
             Result.success(
                 SigningInfo(
                     signatureSchemes = signatureSchemes,
-                    verified = true,
+                    verified = false,
                     signerCount = certificates.size,
                     certificates = certInfos
                 )

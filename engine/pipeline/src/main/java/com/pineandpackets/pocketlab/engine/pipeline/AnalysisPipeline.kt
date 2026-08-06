@@ -6,6 +6,7 @@ import com.pineandpackets.pocketlab.engine.apk.ApkAnalyzer
 import com.pineandpackets.pocketlab.engine.archive.ArchiveAnalyzer
 import com.pineandpackets.pocketlab.engine.archive.ArchiveAnalysisResult
 import com.pineandpackets.pocketlab.engine.dex.DexAnalyzer
+import com.pineandpackets.pocketlab.engine.dex.ReflectionDetector
 import com.pineandpackets.pocketlab.engine.filetype.FileTypeDetector
 import com.pineandpackets.pocketlab.engine.ioc.IocExtractor
 import com.pineandpackets.pocketlab.engine.rules.RulesEngine
@@ -23,11 +24,13 @@ class AnalysisPipeline {
     private val dexAnalyzer = DexAnalyzer()
     private val iocExtractor = IocExtractor()
     private val rulesEngine = RulesEngine()
+    private val reflectionDetector = ReflectionDetector()
     
     fun analyze(
         caseId: String,
         inputFile: File,
-        hashes: HashResult
+        hashes: HashResult,
+        archivePassword: String? = null
     ): Flow<AnalysisProgress> = flow {
         val startTime = System.currentTimeMillis()
         val findings = mutableListOf<Finding>()
@@ -50,16 +53,24 @@ class AnalysisPipeline {
             
             if (detectedType == DetectedType.ZIP || detectedType == DetectedType.APK) {
                 emit(AnalysisProgress.StageStarted("archive", "Analyzing archive"))
-                val result = archiveAnalyzer.analyzeArchive(inputFile)
+                val result = if (archivePassword != null) {
+                    archiveAnalyzer.analyzeArchive(inputFile, archivePassword)
+                } else {
+                    archiveAnalyzer.analyzeArchiveWithPasswordAttempts(inputFile)
+                }
                 if (result.isSuccess) {
                     archiveResult = result.getOrNull()
                     emit(AnalysisProgress.StageComplete("archive"))
                     
-                    if (detectedType == DetectedType.APK || archiveResult?.entries?.any { it.normalizedPath.endsWith(".apk") } == true) {
+                    if (archiveResult?.passwordRequired == true) {
+                        emit(AnalysisProgress.StageFailed("archive", "Archive is encrypted and requires password"))
+                    } else if (detectedType == DetectedType.APK || archiveResult?.entries?.any { it.normalizedPath.endsWith(".apk") } == true) {
                         emit(AnalysisProgress.StageStarted("apk", "Analyzing APK"))
                         val apkResult = apkAnalyzer.analyzeApk(inputFile)
                         if (apkResult.isSuccess) {
-                            apkInfo = apkResult.getOrNull()
+                            val apkAnalysisResult = apkResult.getOrNull()
+                            apkInfo = apkAnalysisResult?.apkInfo
+                            val apkFiles = apkAnalysisResult?.files ?: emptyList()
                             emit(AnalysisProgress.StageComplete("apk"))
                             
                             emit(AnalysisProgress.StageStarted("dex", "Analyzing DEX files"))
@@ -72,6 +83,42 @@ class AnalysisPipeline {
                                 dexFile.delete()
                             }
                             emit(AnalysisProgress.StageComplete("dex"))
+                            
+                            emit(AnalysisProgress.StageStarted("code_analysis", "Analyzing code patterns"))
+                            dexInfos.forEach { dexInfo ->
+                                val reflectionFindings = reflectionDetector.detectPatterns(dexInfo)
+                                reflectionFindings.forEach { refFinding ->
+                                    findings.add(
+                                        Finding(
+                                            id = UUID.randomUUID().toString(),
+                                            ruleId = "REFLECTION_${refFinding.patternType}",
+                                            title = refFinding.description,
+                                            category = "code_pattern",
+                                            severity = refFinding.severity,
+                                            confidence = Confidence.HIGH,
+                                            simpleExplanation = refFinding.evidence,
+                                            analystExplanation = "Detected ${refFinding.patternType} pattern in ${refFinding.className}.${refFinding.methodName}",
+                                            evidence = listOf(
+                                                Evidence(
+                                                    type = EvidenceType.DEX_CALL_SITE,
+                                                    fileId = null,
+                                                    dexName = dexInfo.name,
+                                                    className = refFinding.className,
+                                                    method = refFinding.methodName,
+                                                    offset = null,
+                                                    excerpt = refFinding.evidence,
+                                                    excerptEncoding = "text"
+                                                )
+                                            ),
+                                            limitations = listOf("Static analysis cannot determine if this code path is executed"),
+                                            recommendations = listOf("Review if this pattern is necessary for app functionality"),
+                                            mappings = emptyList(),
+                                            references = emptyList()
+                                        )
+                                    )
+                                }
+                            }
+                            emit(AnalysisProgress.StageComplete("code_analysis"))
                         } else {
                             emit(AnalysisProgress.StageFailed("apk", apkResult.exceptionOrNull()?.message ?: "Unknown error"))
                         }

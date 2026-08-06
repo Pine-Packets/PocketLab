@@ -13,16 +13,52 @@ import java.util.UUID
 
 class RulesEngine {
     
+    private val factExtractor = FactExtractor()
+    private val ruleInterpreter = RuleInterpreter()
+    private var declarativeRules: List<Rule> = emptyList()
+    
+    init {
+        loadDefaultRules()
+    }
+    
+    /**
+     * Load default rules from resources.
+     */
+    private fun loadDefaultRules() {
+        try {
+            val rulesFile = java.io.File("engine/rules/src/main/resources/rules/default-rules.json")
+            if (rulesFile.exists()) {
+                declarativeRules = ruleInterpreter.loadRules(rulesFile)
+                Timber.i("Loaded ${declarativeRules.size} declarative rules")
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to load default rules, using hardcoded rules only")
+        }
+    }
+    
+    /**
+     * Load rules from a custom file.
+     */
+    fun loadRulesFromFile(file: java.io.File) {
+        declarativeRules = ruleInterpreter.loadRules(file)
+    }
+    
     fun evaluateRules(apkInfo: ApkInfo): List<Finding> {
         val findings = mutableListOf<Finding>()
         
+        // Evaluate declarative rules
+        val facts = factExtractor.extractFacts(apkInfo)
+        findings.addAll(ruleInterpreter.evaluateRules(declarativeRules, facts))
+        
+        // Evaluate hardcoded rules (for backwards compatibility)
         findings.addAll(checkDangerousPermissions(apkInfo))
         findings.addAll(checkExportedComponents(apkInfo))
         findings.addAll(checkDebuggableFlag(apkInfo))
         findings.addAll(checkBackupAllowed(apkInfo))
         findings.addAll(checkCleartextTraffic(apkInfo))
         
-        return findings
+        // Deduplicate findings by ruleId
+        return findings.distinctBy { it.ruleId }
     }
     
     private fun checkDangerousPermissions(apkInfo: ApkInfo): List<Finding> {

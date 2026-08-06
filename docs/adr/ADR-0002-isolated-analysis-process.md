@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (implementation planned for Phase 9)
+Implemented (Phase 9)
 
 ## Context
 
@@ -91,3 +91,51 @@ If isolated process proves too restrictive or complex:
 Initial implementation may use regular separate process. Can migrate to isolated process later if needed.
 
 If isolated process proves unworkable, document limitations and add additional validation at IPC boundary.
+
+## Implementation Details (Phase 9)
+
+### Components
+
+1. **AIDL Interface** (`IAnalyzerService.aidl`, `IAnalyzerCallback.aidl`)
+   - `startAnalysis(requestJson, inputFd, outputFd, callback)` - starts analysis with read-only FD
+   - `cancelAnalysis(jobId)` - cancels running analysis
+   - `getEngineInfo()` - returns engine metadata
+   - `isAnalysisRunning(jobId)` - checks job status
+
+2. **AnalyzerService** (`engine/service/AnalyzerService.kt`)
+   - Declared in manifest with `android:isolatedProcess="true"` and `android:process=":analyzer"`
+   - Not exported (`android:exported="false"`)
+   - Receives read-only `ParcelFileDescriptor` for sample input
+   - Writes report to output `ParcelFileDescriptor`
+   - Enforces budgets from `IsolatedAnalysisRequest`
+   - Sends progress updates through `IAnalyzerCallback`
+
+3. **AnalysisClient** (`engine/service/AnalysisClient.kt`)
+   - Main-process wrapper implementing `AnalysisEngine` interface
+   - Manages service binding and lifecycle
+   - Passes read-only file descriptors to isolated process
+   - Receives progress and results through callback
+   - Detects process crashes via `onServiceDisconnected`
+
+4. **ProcessCrashDetector** (`engine/service/ProcessCrashDetector.kt`)
+   - Tracks process state (Healthy, Crashed, Recovering, Unavailable)
+   - Limits recovery attempts to 3
+   - Records crash history for diagnostics
+
+5. **CheckpointManager** (`engine/service/CheckpointManager.kt`)
+   - Persists analysis checkpoints to disk
+   - Enables recovery after process crash
+   - Stores completed stages and partial state
+
+6. **IsolatedAnalysisRequest** (`engine/service/IsolatedAnalysisRequest.kt`)
+   - Serializable request with explicit budget fields
+   - No file paths or sample content in request
+   - Budgets derived from `AnalysisLimits`
+
+### Security Tests
+
+- `IsolationBoundaryTest` - verifies no sample data in requests/checkpoints
+- `ProcessCrashDetectorTest` - verifies crash detection and recovery limits
+- `CheckpointManagerTest` - verifies checkpoint persistence
+- `IsolatedAnalysisRequestTest` - verifies request serialization and budget constraints
+- `ManifestPolicyTest` additions - verify service is isolated, not exported, runs in separate process

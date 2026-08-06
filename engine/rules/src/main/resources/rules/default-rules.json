@@ -1,0 +1,157 @@
+[
+  {
+    "id": "PERM-SMS-COMBINED",
+    "title": "SMS Permissions Combination",
+    "category": "permission",
+    "severity": "HIGH",
+    "confidence": "HIGH",
+    "description": "App has both SMS read and send permissions, which could be used for premium SMS fraud",
+    "analystDescription": "The application declares both SMS read and send permissions. This combination is commonly seen in malware that sends premium-rate SMS messages or exfiltrates SMS content.",
+    "whenClause": {
+      "all": [
+        {"fact": "PERMISSION_SMS_READ"},
+        {"fact": "PERMISSION_SMS_SEND"}
+      ]
+    },
+    "evidence": [
+      {"type": "MANIFEST_DECLARATION", "excerpt": "<uses-permission android:name=\"android.permission.READ_SMS\"/>"},
+      {"type": "MANIFEST_DECLARATION", "excerpt": "<uses-permission android:name=\"android.permission.SEND_SMS\"/>"}
+    ],
+    "limitations": ["Permission declaration does not guarantee usage"],
+    "recommendations": ["Review if SMS functionality is necessary", "Verify SMS recipients are not premium numbers"]
+  },
+  {
+    "id": "COMP-EXPORTED-PROVIDER",
+    "title": "Exported Content Provider",
+    "category": "component",
+    "severity": "HIGH",
+    "confidence": "HIGH",
+    "description": "App has an exported content provider, which could expose sensitive data",
+    "analystDescription": "The application declares an exported content provider. Exported providers can be accessed by other applications, potentially exposing sensitive data or allowing unauthorized data modification.",
+    "whenClause": {
+      "any": [
+        {"fact": "PROVIDER_EXPORTED"}
+      ]
+    },
+    "evidence": [
+      {"type": "MANIFEST_DECLARATION", "excerpt": "android:exported=\"true\""}
+    ],
+    "limitations": ["Provider may have permission checks in code"],
+    "recommendations": ["Verify provider has proper permission checks", "Consider if provider needs to be exported"]
+  },
+  {
+    "id": "COMP-EXPORTED-NO-PERM",
+    "title": "Exported Component Without Permission",
+    "category": "component",
+    "severity": "MEDIUM",
+    "confidence": "HIGH",
+    "description": "App has an exported component without permission protection",
+    "analystDescription": "The application has exported components that do not require permissions to access. This allows any application on the device to interact with these components.",
+    "whenClause": {
+      "any": [
+        {"fact": "COMPONENT_EXPORTED_NO_PERMISSION"}
+      ]
+    },
+    "evidence": [
+      {"type": "MANIFEST_DECLARATION", "excerpt": "android:exported=\"true\""}
+    ],
+    "limitations": ["Component may validate caller identity in code"],
+    "recommendations": ["Add permission protection to exported components", "Verify component validates caller identity"]
+  },
+  {
+    "id": "MANIFEST-DEBUGGABLE",
+    "title": "Application is Debuggable",
+    "category": "manifest",
+    "severity": "HIGH",
+    "confidence": "HIGH",
+    "description": "App is marked as debuggable, which should not be present in production",
+    "analystDescription": "The android:debuggable flag is set to true in the manifest. This allows debuggers to attach to the process and should never be present in production builds as it poses a significant security risk.",
+    "whenClause": {
+      "any": [
+        {"fact": "MANIFEST_DEBUGGABLE"}
+      ]
+    },
+    "evidence": [
+      {"type": "MANIFEST_DECLARATION", "excerpt": "android:debuggable=\"true\""}
+    ],
+    "limitations": [],
+    "recommendations": ["Remove debuggable flag for production releases", "Verify build configuration"]
+  },
+  {
+    "id": "MANIFEST-CLEARTEXT",
+    "title": "Cleartext Traffic Permitted",
+    "category": "network",
+    "severity": "MEDIUM",
+    "confidence": "HIGH",
+    "description": "App permits cleartext (unencrypted) network traffic",
+    "analystDescription": "The android:usesCleartextTraffic flag is set to true, allowing unencrypted HTTP traffic. This can expose user data to network eavesdropping and man-in-the-middle attacks.",
+    "whenClause": {
+      "any": [
+        {"fact": "MANIFEST_CLEARTEXT_TRAFFIC"}
+      ]
+    },
+    "evidence": [
+      {"type": "MANIFEST_DECLARATION", "excerpt": "android:usesCleartextTraffic=\"true\""}
+    ],
+    "limitations": ["May be intentional for development or specific use cases"],
+    "recommendations": ["Use HTTPS for all network communication", "Implement network security configuration"]
+  },
+  {
+    "id": "MANIFEST-OLD-TARGET-SDK",
+    "title": "Outdated Target SDK",
+    "category": "manifest",
+    "severity": "MEDIUM",
+    "confidence": "HIGH",
+    "description": "App targets an outdated SDK version, missing modern security protections",
+    "analystDescription": "The application targets an SDK version below 30, which means it may not benefit from modern Android security protections and behavioral changes.",
+    "whenClause": {
+      "any": [
+        {"fact": "MANIFEST_TARGET_SDK_OLD"}
+      ]
+    },
+    "evidence": [
+      {"type": "MANIFEST_DECLARATION", "excerpt": "android:targetSdkVersion"}
+    ],
+    "limitations": ["App may still be secure with proper implementation"],
+    "recommendations": ["Update target SDK to latest version", "Review behavioral changes in newer Android versions"]
+  },
+  {
+    "id": "PERM-LOCATION-BACKGROUND",
+    "title": "Background Location Access",
+    "category": "permission",
+    "severity": "HIGH",
+    "confidence": "MEDIUM",
+    "description": "App has location permissions that could be used for background tracking",
+    "analystDescription": "The application has fine or coarse location permissions. While location access may be legitimate, it could also be used for user tracking without explicit consent.",
+    "whenClause": {
+      "any": [
+        {"fact": "PERMISSION_LOCATION_FINE"},
+        {"fact": "PERMISSION_LOCATION_COARSE"}
+      ]
+    },
+    "evidence": [
+      {"type": "MANIFEST_DECLARATION", "excerpt": "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>"}
+    ],
+    "limitations": ["Location access may be user-initiated"],
+    "recommendations": ["Verify location access is user-initiated", "Check if background location is necessary"]
+  },
+  {
+    "id": "PERM-INSTALL-PACKAGES",
+    "title": "Package Installation Permission",
+    "category": "permission",
+    "severity": "CRITICAL",
+    "confidence": "HIGH",
+    "description": "App can request to install other packages",
+    "analystDescription": "The application has the REQUEST_INSTALL_PACKAGES permission, allowing it to install other applications. This is a high-risk permission commonly seen in malware that downloads and installs additional payloads.",
+    "whenClause": {
+      "any": [
+        {"fact": "PERMISSION_INSTALL_PACKAGES"}
+      ]
+    },
+    "evidence": [
+      {"type": "MANIFEST_DECLARATION", "excerpt": "<uses-permission android:name=\"android.permission.REQUEST_INSTALL_PACKAGES\"/>"}
+    ],
+    "limitations": ["Permission may be legitimate for app stores or enterprise apps"],
+    "recommendations": ["Verify if package installation is necessary", "Check installation sources"]
+  }
+]

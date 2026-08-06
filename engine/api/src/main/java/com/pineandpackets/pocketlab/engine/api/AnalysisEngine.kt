@@ -13,7 +13,8 @@ data class AnalysisRequest(
     val hashAlgorithms: List<HashAlgorithm>,
     val nativeAnalysisEnabled: Boolean,
     val deepDexAnalysisEnabled: Boolean,
-    val iocExtractionEnabled: Boolean
+    val iocExtractionEnabled: Boolean,
+    val archivePassword: String? = null
 )
 
 enum class AnalysisProfile {

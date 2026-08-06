@@ -110,7 +110,28 @@ data class ComponentInfo(
     val name: String,
     val type: ComponentType,
     val exported: Boolean,
-    val permission: String? = null
+    val permission: String? = null,
+    val intentFilters: List<IntentFilterInfo> = emptyList()
+)
+
+@Serializable
+data class IntentFilterInfo(
+    val actions: List<String> = emptyList(),
+    val categories: List<String> = emptyList(),
+    val dataElements: List<DataElement> = emptyList(),
+    val autoVerify: Boolean = false,
+    val priority: Int? = null
+)
+
+@Serializable
+data class DataElement(
+    val scheme: String? = null,
+    val host: String? = null,
+    val port: String? = null,
+    val path: String? = null,
+    val pathPattern: String? = null,
+    val pathPrefix: String? = null,
+    val mimeType: String? = null
 )
 
 @Serializable
@@ -149,7 +170,94 @@ data class DexInfo(
     val classCount: Int,
     val methodCount: Int,
     val stringCount: Int,
-    val size: Long
+    val size: Long,
+    val strings: List<DexString> = emptyList(),
+    val typeIds: List<DexTypeId> = emptyList(),
+    val methodIds: List<DexMethodId> = emptyList(),
+    val fieldIds: List<DexFieldId> = emptyList(),
+    val classDefs: List<DexClassDef> = emptyList(),
+    val apiReferences: List<ApiReference> = emptyList()
+)
+
+@Serializable
+data class DexString(
+    val index: Int,
+    val value: String,
+    val length: Int
+)
+
+@Serializable
+data class DexTypeId(
+    val index: Int,
+    val descriptorIdx: Int,
+    val descriptor: String
+)
+
+@Serializable
+data class DexMethodId(
+    val index: Int,
+    val classIdx: Int,
+    val protoIdx: Int,
+    val nameIdx: Int,
+    val className: String,
+    val methodName: String,
+    val prototype: String
+)
+
+@Serializable
+data class DexFieldId(
+    val index: Int,
+    val classIdx: Int,
+    val typeIdx: Int,
+    val nameIdx: Int,
+    val className: String,
+    val fieldName: String,
+    val fieldType: String
+)
+
+@Serializable
+data class DexClassDef(
+    val index: Int,
+    val classIdx: Int,
+    val accessFlags: Int,
+    val superclassIdx: Int,
+    val interfacesOff: Int,
+    val sourceFileIdx: Int,
+    val annotationsOff: Int,
+    val classDataOff: Int,
+    val staticValuesOff: Int,
+    val className: String,
+    val superclass: String?,
+    val interfaces: List<String> = emptyList(),
+    val sourceFile: String?,
+    val methods: List<DexMethod> = emptyList()
+)
+
+@Serializable
+data class DexMethod(
+    val methodIdx: Int,
+    val accessFlags: Int,
+    val codeOff: Int,
+    val name: String,
+    val prototype: String,
+    val instructionCount: Int = 0,
+    val referencedStrings: List<String> = emptyList(),
+    val referencedMethods: List<String> = emptyList()
+)
+
+@Serializable
+data class ApiReference(
+    val className: String,
+    val methodName: String,
+    val callSites: List<CallSite> = emptyList()
+)
+
+@Serializable
+data class CallSite(
+    val className: String,
+    val methodName: String,
+    val instructionOffset: Int,
+    val context: String?
 )
 
 @Serializable

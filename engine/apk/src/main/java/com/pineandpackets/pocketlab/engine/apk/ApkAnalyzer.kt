@@ -1,27 +1,66 @@
 package com.pineandpackets.pocketlab.engine.apk
 
 import com.pineandpackets.pocketlab.core.common.AnalysisError
-import com.pineandpackets.pocketlab.core.model.ApkInfo
-import com.pineandpackets.pocketlab.core.model.ComponentInfo
-import com.pineandpackets.pocketlab.core.model.ComponentType
-import com.pineandpackets.pocketlab.core.model.PermissionInfo
-import org.xmlpull.v1.XmlPullParser
-import org.xmlpull.v1.XmlPullParserFactory
+import com.pineandpackets.pocketlab.core.model.*
 import timber.log.Timber
 import java.io.File
 import java.util.zip.ZipFile
 
+data class ApkAnalysisResult(
+    val apkInfo: ApkInfo,
+    val files: List<FileInfo>
+)
+
 class ApkAnalyzer {
     
-    fun analyzeApk(apkFile: File): Result<ApkInfo> {
+    private val binaryXmlParser = BinaryXmlParser()
+    private val fileInventory = ApkFileInventory()
+    private val resourceTableParser = ResourceTableParser()
+    private val structureValidator = ApkStructureValidator()
+    
+    fun analyzeApk(apkFile: File): Result<ApkAnalysisResult> {
         return try {
+            // Validate APK structure first
+            val validationResult = structureValidator.validate(apkFile)
+            if (!validationResult.isValid) {
+                return Result.failure(
+                    AnalysisError.ParserError("Invalid APK structure: ${validationResult.errors.joinToString(", ")}")
+                )
+            }
+            
+            if (validationResult.warnings.isNotEmpty()) {
+                Timber.w("APK structure warnings: ${validationResult.warnings.joinToString(", ")}")
+            }
+            
             ZipFile(apkFile).use { zip ->
                 val manifestEntry = zip.getEntry("AndroidManifest.xml")
                     ?: return Result.failure(AnalysisError.ParserError("No AndroidManifest.xml found"))
                 
                 val manifestBytes = zip.getInputStream(manifestEntry).readBytes()
                 
-                parseManifest(manifestBytes)
+                // Parse resources.arsc if present
+                val resourceTable = zip.getEntry("resources.arsc")?.let { entry ->
+                    val resourceBytes = zip.getInputStream(entry).readBytes()
+                    resourceTableParser.parse(resourceBytes).getOrNull()
+                }
+                
+                val apkInfoResult = parseManifest(manifestBytes, resourceTable)
+                if (apkInfoResult.isFailure) {
+                    return Result.failure(apkInfoResult.exceptionOrNull()!!)
+                }
+                
+                val apkInfo = apkInfoResult.getOrNull()!!
+                
+                // Get file inventory
+                val filesResult = fileInventory.inventoryApk(apkFile)
+                val files = if (filesResult.isSuccess) {
+                    filesResult.getOrNull() ?: emptyList()
+                } else {
+                    Timber.w(filesResult.exceptionOrNull(), "Failed to get file inventory")
+                    emptyList()
+                }
+                
+                Result.success(ApkAnalysisResult(apkInfo, files))
             }
         } catch (e: Exception) {
             Timber.e(e, "Failed to analyze APK")
@@ -29,11 +68,14 @@ class ApkAnalyzer {
         }
     }
     
-    private fun parseManifest(manifestBytes: ByteArray): Result<ApkInfo> {
+    private fun parseManifest(manifestBytes: ByteArray, resourceTable: ResourceTableParser.ResourceTable?): Result<ApkInfo> {
         return try {
-            val parser = XmlPullParserFactory.newInstance().newPullParser()
+            val parseResult = binaryXmlParser.parse(manifestBytes)
+            if (parseResult.isFailure) {
+                return Result.failure(parseResult.exceptionOrNull()!!)
+            }
             
-            parser.setInput(manifestBytes.inputStream(), "UTF-8")
+            val elements = parseResult.getOrThrow()
             
             var packageName: String? = null
             var versionName: String? = null
@@ -41,96 +83,192 @@ class ApkAnalyzer {
             var minSdk: Int? = null
             var targetSdk: Int? = null
             var debuggable = false
+            var backupAllowed = false
+            var usesCleartextTraffic = false
+            var applicationLabel: String? = null
             
             val permissions = mutableListOf<PermissionInfo>()
             val components = mutableListOf<ComponentInfo>()
             
-            var eventType = parser.eventType
-            while (eventType != XmlPullParser.END_DOCUMENT) {
-                when (eventType) {
-                    XmlPullParser.START_TAG -> {
-                        when (parser.name) {
-                            "manifest" -> {
-                                packageName = parser.getAttributeValue(null, "package")
-                                versionName = parser.getAttributeValue(null, "android:versionName")
-                                versionCode = parser.getAttributeValue(null, "android:versionCode")?.toLongOrNull()
-                            }
-                            "uses-sdk" -> {
-                                minSdk = parser.getAttributeValue(null, "android:minSdkVersion")?.toIntOrNull()
-                                targetSdk = parser.getAttributeValue(null, "android:targetSdkVersion")?.toIntOrNull()
-                            }
-                            "uses-permission" -> {
-                                val permName = parser.getAttributeValue(null, "android:name")
-                                if (permName != null) {
-                                    permissions.add(
-                                        PermissionInfo(
-                                            name = permName,
-                                            protectionLevel = null,
-                                            declared = true,
-                                            used = null
-                                        )
-                                    )
+            var currentComponent: ComponentInfo? = null
+            val currentIntentFilters = mutableListOf<IntentFilterInfo>()
+            var currentIntentFilter: IntentFilterInfo? = null
+            val currentDataElements = mutableListOf<DataElement>()
+            
+            for (element in elements) {
+                when (element.name) {
+                    "manifest" -> {
+                        packageName = element.attributes["package"]?.rawValue
+                        versionName = element.attributes["android:versionName"]?.rawValue
+                        versionCode = element.attributes["android:versionCode"]?.rawValue?.toLongOrNull()
+                    }
+                    "uses-sdk" -> {
+                        minSdk = element.attributes["android:minSdkVersion"]?.rawValue?.toIntOrNull()
+                        targetSdk = element.attributes["android:targetSdkVersion"]?.rawValue?.toIntOrNull()
+                    }
+                    "uses-permission" -> {
+                        val permName = element.attributes["android:name"]?.rawValue
+                        if (permName != null) {
+                            val knowledge = PermissionKnowledgeBase.getPermissionKnowledge(permName)
+                            permissions.add(
+                                PermissionInfo(
+                                    name = permName,
+                                    protectionLevel = knowledge.protectionLevel.name,
+                                    declared = true,
+                                    used = null
+                                )
+                            )
+                        }
+                    }
+                    "application" -> {
+                        debuggable = element.attributes["android:debuggable"]?.rawValue == "true"
+                        backupAllowed = element.attributes["android:allowBackup"]?.rawValue != "false"
+                        usesCleartextTraffic = element.attributes["android:usesCleartextTraffic"]?.rawValue == "true"
+                        
+                        // Extract application label
+                        val labelAttr = element.attributes["android:label"]
+                        if (labelAttr != null) {
+                            applicationLabel = when {
+                                labelAttr.typedValue.type == ResourceTableParser.TYPE_STRING && resourceTable != null -> {
+                                    // Resolve string resource
+                                    resourceTableParser.resolveStringResource(resourceTable, labelAttr.typedValue.data)
                                 }
-                            }
-                            "application" -> {
-                                debuggable = parser.getAttributeValue(null, "android:debuggable") == "true"
-                            }
-                            "activity" -> {
-                                val name = parser.getAttributeValue(null, "android:name")
-                                val exported = parser.getAttributeValue(null, "android:exported") == "true"
-                                if (name != null) {
-                                    components.add(
-                                        ComponentInfo(
-                                            name = name,
-                                            type = ComponentType.ACTIVITY,
-                                            exported = exported
-                                        )
-                                    )
+                                labelAttr.rawValue != null -> {
+                                    // Direct string value
+                                    labelAttr.rawValue
                                 }
-                            }
-                            "service" -> {
-                                val name = parser.getAttributeValue(null, "android:name")
-                                val exported = parser.getAttributeValue(null, "android:exported") == "true"
-                                if (name != null) {
-                                    components.add(
-                                        ComponentInfo(
-                                            name = name,
-                                            type = ComponentType.SERVICE,
-                                            exported = exported
-                                        )
-                                    )
-                                }
-                            }
-                            "receiver" -> {
-                                val name = parser.getAttributeValue(null, "android:name")
-                                val exported = parser.getAttributeValue(null, "android:exported") == "true"
-                                if (name != null) {
-                                    components.add(
-                                        ComponentInfo(
-                                            name = name,
-                                            type = ComponentType.RECEIVER,
-                                            exported = exported
-                                        )
-                                    )
-                                }
-                            }
-                            "provider" -> {
-                                val name = parser.getAttributeValue(null, "android:name")
-                                val exported = parser.getAttributeValue(null, "android:exported") == "true"
-                                if (name != null) {
-                                    components.add(
-                                        ComponentInfo(
-                                            name = name,
-                                            type = ComponentType.PROVIDER,
-                                            exported = exported
-                                        )
-                                    )
-                                }
+                                else -> null
                             }
                         }
                     }
+                    "activity" -> {
+                        currentComponent?.let { components.add(it) }
+                        currentComponent = null
+                        
+                        val name = element.attributes["android:name"]?.rawValue
+                        val exported = element.attributes["android:exported"]?.rawValue == "true"
+                        val permission = element.attributes["android:permission"]?.rawValue
+                        if (name != null) {
+                            currentComponent = ComponentInfo(
+                                name = name,
+                                type = ComponentType.ACTIVITY,
+                                exported = exported,
+                                permission = permission
+                            )
+                        }
+                    }
+                    "service" -> {
+                        currentComponent?.let { components.add(it) }
+                        currentComponent = null
+                        
+                        val name = element.attributes["android:name"]?.rawValue
+                        val exported = element.attributes["android:exported"]?.rawValue == "true"
+                        val permission = element.attributes["android:permission"]?.rawValue
+                        if (name != null) {
+                            currentComponent = ComponentInfo(
+                                name = name,
+                                type = ComponentType.SERVICE,
+                                exported = exported,
+                                permission = permission
+                            )
+                        }
+                    }
+                    "receiver" -> {
+                        currentComponent?.let { components.add(it) }
+                        currentComponent = null
+                        
+                        val name = element.attributes["android:name"]?.rawValue
+                        val exported = element.attributes["android:exported"]?.rawValue == "true"
+                        val permission = element.attributes["android:permission"]?.rawValue
+                        if (name != null) {
+                            currentComponent = ComponentInfo(
+                                name = name,
+                                type = ComponentType.RECEIVER,
+                                exported = exported,
+                                permission = permission
+                            )
+                        }
+                    }
+                    "provider" -> {
+                        currentComponent?.let { components.add(it) }
+                        currentComponent = null
+                        
+                        val name = element.attributes["android:name"]?.rawValue
+                        val exported = element.attributes["android:exported"]?.rawValue == "true"
+                        val permission = element.attributes["android:permission"]?.rawValue
+                        if (name != null) {
+                            currentComponent = ComponentInfo(
+                                name = name,
+                                type = ComponentType.PROVIDER,
+                                exported = exported,
+                                permission = permission
+                            )
+                        }
+                    }
+                    "intent-filter" -> {
+                        currentIntentFilter?.let {
+                            currentIntentFilters.add(it.copy(dataElements = currentDataElements.toList()))
+                        }
+                        currentDataElements.clear()
+                        
+                        val autoVerify = element.attributes["android:autoVerify"]?.rawValue == "true"
+                        val priority = element.attributes["android:priority"]?.rawValue?.toIntOrNull()
+                        
+                        currentIntentFilter = IntentFilterInfo(
+                            autoVerify = autoVerify,
+                            priority = priority
+                        )
+                    }
+                    "action" -> {
+                        currentIntentFilter?.let { filter ->
+                            val actionName = element.attributes["android:name"]?.rawValue
+                            if (actionName != null) {
+                                currentIntentFilter = filter.copy(
+                                    actions = filter.actions + actionName
+                                )
+                            }
+                        }
+                    }
+                    "category" -> {
+                        currentIntentFilter?.let { filter ->
+                            val categoryName = element.attributes["android:name"]?.rawValue
+                            if (categoryName != null) {
+                                currentIntentFilter = filter.copy(
+                                    categories = filter.categories + categoryName
+                                )
+                            }
+                        }
+                    }
+                    "data" -> {
+                        val scheme = element.attributes["android:scheme"]?.rawValue
+                        val host = element.attributes["android:host"]?.rawValue
+                        val port = element.attributes["android:port"]?.rawValue
+                        val path = element.attributes["android:path"]?.rawValue
+                        val pathPattern = element.attributes["android:pathPattern"]?.rawValue
+                        val pathPrefix = element.attributes["android:pathPrefix"]?.rawValue
+                        val mimeType = element.attributes["android:mimeType"]?.rawValue
+                        
+                        currentDataElements.add(
+                            DataElement(
+                                scheme = scheme,
+                                host = host,
+                                port = port,
+                                path = path,
+                                pathPattern = pathPattern,
+                                pathPrefix = pathPrefix,
+                                mimeType = mimeType
+                            )
+                        )
+                    }
                 }
-                eventType = parser.next()
+            }
+            
+            currentIntentFilter?.let {
+                currentIntentFilters.add(it.copy(dataElements = currentDataElements.toList()))
+            }
+            
+            currentComponent?.let {
+                components.add(it.copy(intentFilters = currentIntentFilters.toList()))
             }
             
             Result.success(
@@ -141,8 +279,10 @@ class ApkAnalyzer {
                     minSdk = minSdk,
                     targetSdk = targetSdk,
                     compileSdk = null,
-                    applicationLabel = null,
+                    applicationLabel = applicationLabel,
                     debuggable = debuggable,
+                    backupAllowed = backupAllowed,
+                    usesCleartextTraffic = usesCleartextTraffic,
                     permissions = permissions,
                     components = components,
                     signingInfo = null

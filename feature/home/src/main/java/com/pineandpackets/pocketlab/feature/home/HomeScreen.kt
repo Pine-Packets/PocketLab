@@ -27,7 +27,7 @@ fun HomeScreen(
     onAnalyzeFile: (Uri) -> Unit
 ) {
     val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let { onAnalyzeFile(it) }
     }
@@ -53,7 +53,15 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(32.dp))
         
         Button(
-            onClick = { filePickerLauncher.launch("*/*") },
+            onClick = {
+                filePickerLauncher.launch(
+                    arrayOf(
+                        "application/vnd.android.package-archive",
+                        "application/zip",
+                        "application/x-dex"
+                    )
+                )
+            },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Analyze a file")

@@ -122,6 +122,30 @@ class ReportExporter {
         return sb.toString()
     }
     
+    fun exportIocsToCsv(report: AnalysisReport): String {
+        val sb = StringBuilder()
+        
+        sb.appendLine("type,value,defanged_value,confidence,context,file,entry,class,method,offset")
+        
+        report.indicators.forEach { indicator ->
+            val type = escapeCsv(indicator.type.name)
+            val displayValue = escapeCsv(indicator.displayValue)
+            val defangedValue = escapeCsv(indicator.defangedValue)
+            val confidence = escapeCsv(indicator.confidence.name)
+            val context = escapeCsv(indicator.context ?: "")
+            
+            val file = escapeCsv(indicator.source?.container ?: "")
+            val entry = escapeCsv(indicator.source?.entry ?: "")
+            val className = escapeCsv(indicator.source?.className ?: "")
+            val method = escapeCsv(indicator.source?.method ?: "")
+            val offset = indicator.source?.offset?.toString() ?: ""
+            
+            sb.appendLine("$type,$displayValue,$defangedValue,$confidence,$context,$file,$entry,$className,$method,$offset")
+        }
+        
+        return sb.toString()
+    }
+    
     private fun escapeHtml(text: String): String {
         return text
             .replace("&", "&amp;")
@@ -140,5 +164,26 @@ class ReportExporter {
             .replace("_", "\\_")
             .replace("[", "\\[")
             .replace("]", "\\]")
+    }
+    
+    private fun escapeCsv(text: String): String {
+        if (text.isEmpty()) return ""
+        
+        val needsQuoting = text.contains(',') || 
+                          text.contains('"') || 
+                          text.contains('\n') || 
+                          text.contains('\r') ||
+                          text.startsWith("=") ||
+                          text.startsWith("+") ||
+                          text.startsWith("-") ||
+                          text.startsWith("@")
+        
+        val escaped = text.replace("\"", "\"\"")
+        
+        return if (needsQuoting) {
+            "\"$escaped\""
+        } else {
+            escaped
+        }
     }
 }

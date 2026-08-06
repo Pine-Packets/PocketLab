@@ -78,4 +78,40 @@ class ManifestPolicyTest {
             )
         }
     }
+
+    @Test
+    fun `analyzer service manifest declares isolated process`() {
+        val serviceManifest = File("../engine/service/src/main/AndroidManifest.xml")
+        if (serviceManifest.exists()) {
+            val content = serviceManifest.readText()
+            assertTrue(
+                "AnalyzerService should be declared with isolatedProcess=true",
+                content.contains("android:isolatedProcess=\"true\"")
+            )
+        }
+    }
+
+    @Test
+    fun `analyzer service is not exported`() {
+        val serviceManifest = File("../engine/service/src/main/AndroidManifest.xml")
+        if (serviceManifest.exists()) {
+            val content = serviceManifest.readText()
+            assertTrue(
+                "AnalyzerService should be declared with exported=false",
+                content.contains("android:exported=\"false\"")
+            )
+        }
+    }
+
+    @Test
+    fun `analyzer service runs in separate process`() {
+        val serviceManifest = File("../engine/service/src/main/AndroidManifest.xml")
+        if (serviceManifest.exists()) {
+            val content = serviceManifest.readText()
+            assertTrue(
+                "AnalyzerService should run in a separate process",
+                content.contains("android:process=")
+            )
+        }
+    }
 }

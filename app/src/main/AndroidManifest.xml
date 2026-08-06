@@ -23,6 +23,34 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ShareIntakeActivity"
+            android:exported="true"
+            android:theme="@style/Theme.PocketLab"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/vnd.android.package-archive" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/zip" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/x-dex" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name="com.pineandpackets.pocketlab.engine.service.AnalyzerService"
+            android:exported="false"
+            android:process=":analyzer"
+            android:isolatedProcess="true" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

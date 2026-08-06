@@ -176,7 +176,8 @@ data class DexInfo(
     val methodIds: List<DexMethodId> = emptyList(),
     val fieldIds: List<DexFieldId> = emptyList(),
     val classDefs: List<DexClassDef> = emptyList(),
-    val apiReferences: List<ApiReference> = emptyList()
+    val apiReferences: List<ApiReference> = emptyList(),
+    val reconstructedStrings: List<ReconstructedString> = emptyList()
 )
 
 @Serializable
@@ -242,7 +243,32 @@ data class DexMethod(
     val prototype: String,
     val instructionCount: Int = 0,
     val referencedStrings: List<String> = emptyList(),
-    val referencedMethods: List<String> = emptyList()
+    val referencedMethods: List<String> = emptyList(),
+    val instructions: List<DexInstruction> = emptyList()
+)
+
+@Serializable
+data class DexInstruction(
+    val offset: Int,
+    val opcode: Int,
+    val width: Int,
+    val operands: List<Int> = emptyList(),
+    val stringIndex: Int? = null,
+    val methodIndex: Int? = null,
+    val typeIndex: Int? = null,
+    val fieldIndex: Int? = null
+)
+
+@Serializable
+data class ReconstructedString(
+    val value: String,
+    val constructionType: String,
+    val className: String,
+    val methodName: String,
+    val instructionOffset: Int,
+    val confidence: String,
+    val sourceStrings: List<String>,
+    val targetApi: String? = null
 )
 
 @Serializable

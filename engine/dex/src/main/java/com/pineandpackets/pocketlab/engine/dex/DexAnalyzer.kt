@@ -78,6 +78,11 @@ class DexAnalyzer {
             val classDefs = if (extractCode) parseClassDefs(buffer, classDefsOff, classDefsSize, typeIds, strings, methodIds, bytes) else emptyList()
             
             val apiReferences = if (extractCode) buildApiReferences(classDefs, methodIds) else emptyList()
+            val reconstructedStrings = if (extractCode) {
+                ConstantPropagator().reconstructStrings(classDefs, strings, methodIds)
+            } else {
+                emptyList()
+            }
             
             Result.success(
                 DexInfo(
@@ -92,7 +97,8 @@ class DexAnalyzer {
                     methodIds = methodIds,
                     fieldIds = fieldIds,
                     classDefs = classDefs,
-                    apiReferences = apiReferences
+                    apiReferences = apiReferences,
+                    reconstructedStrings = reconstructedStrings
                 )
             )
         } catch (e: Exception) {
@@ -307,10 +313,10 @@ class DexAnalyzer {
                 methodIndex += methodIdxDiff
                 val methodId = methodIds.getOrNull(methodIndex) ?: continue
                 
-                val (instructionCount, referencedStrings, referencedMethods) = if (codeOff != 0) {
+                val codeItem = if (codeOff != 0) {
                     parseCodeItem(buffer, codeOff, strings, methodIds, dexBytes)
                 } else {
-                    Triple(0, emptyList(), emptyList())
+                    CodeItemParseResult(0, emptyList(), emptyList(), emptyList())
                 }
                 
                 methods.add(
@@ -320,9 +326,10 @@ class DexAnalyzer {
                         codeOff = codeOff,
                         name = methodId.methodName,
                         prototype = methodId.prototype,
-                        instructionCount = instructionCount,
-                        referencedStrings = referencedStrings,
-                        referencedMethods = referencedMethods
+                        instructionCount = codeItem.instructionCount,
+                        referencedStrings = codeItem.referencedStrings,
+                        referencedMethods = codeItem.referencedMethods,
+                        instructions = codeItem.instructions.take(500)
                     )
                 )
             }
@@ -336,10 +343,10 @@ class DexAnalyzer {
                 methodIndex += methodIdxDiff
                 val methodId = methodIds.getOrNull(methodIndex) ?: continue
                 
-                val (instructionCount, referencedStrings, referencedMethods) = if (codeOff != 0) {
+                val codeItem = if (codeOff != 0) {
                     parseCodeItem(buffer, codeOff, strings, methodIds, dexBytes)
                 } else {
-                    Triple(0, emptyList(), emptyList())
+                    CodeItemParseResult(0, emptyList(), emptyList(), emptyList())
                 }
                 
                 methods.add(
@@ -349,9 +356,10 @@ class DexAnalyzer {
                         codeOff = codeOff,
                         name = methodId.methodName,
                         prototype = methodId.prototype,
-                        instructionCount = instructionCount,
-                        referencedStrings = referencedStrings,
-                        referencedMethods = referencedMethods
+                        instructionCount = codeItem.instructionCount,
+                        referencedStrings = codeItem.referencedStrings,
+                        referencedMethods = codeItem.referencedMethods,
+                        instructions = codeItem.instructions.take(500)
                     )
                 )
             }
@@ -369,33 +377,35 @@ class DexAnalyzer {
         strings: List<DexString>,
         methodIds: List<DexMethodId>,
         dexBytes: ByteArray
-    ): Triple<Int, List<String>, List<String>> {
+    ): CodeItemParseResult {
         return try {
             buffer.position(offset)
-            
+
             val registersSize = buffer.short.toInt() and 0xFFFF
             val insSize = buffer.short.toInt() and 0xFFFF
             val outsSize = buffer.short.toInt() and 0xFFFF
             val triesSize = buffer.short.toInt() and 0xFFFF
             val debugInfoOff = buffer.int
             val insnsSize = buffer.int
-            
+
             val instructionCount = insnsSize
             val referencedStrings = mutableListOf<String>()
             val referencedMethods = mutableListOf<String>()
-            
+            val instructions = mutableListOf<com.pineandpackets.pocketlab.core.model.DexInstruction>()
+
             if (insnsSize > 0 && insnsSize < AnalysisLimits.MAX_INSTRUCTION_COUNT) {
                 val insnsStart = buffer.position()
                 val maxInstructions = minOf(insnsSize, 1000)
-                
+
+                // Build reference lists and instruction list in one pass
                 var pos = 0
                 while (pos < maxInstructions) {
                     if (insnsStart + pos * 2 + 2 > dexBytes.size) break
-                    
+
                     buffer.position(insnsStart + pos * 2)
                     val instructionUnit = buffer.short.toInt() and 0xFFFF
                     val opcode = instructionUnit and 0xFF
-                    
+
                     when (opcode) {
                         0x1A -> {
                             val stringIdx = buffer.short.toInt() and 0xFFFF
@@ -417,14 +427,31 @@ class DexAnalyzer {
                         }
                     }
                 }
+
+                // Also parse detailed instructions for constant propagation
+                instructions.addAll(
+                    ConstantPropagator.parseCodeItemInstructions(dexBytes, offset, maxInstructions)
+                )
             }
-            
-            Triple(instructionCount, referencedStrings.take(100), referencedMethods.take(100))
+
+            CodeItemParseResult(
+                instructionCount = instructionCount,
+                referencedStrings = referencedStrings.take(100),
+                referencedMethods = referencedMethods.take(100),
+                instructions = instructions
+            )
         } catch (e: Exception) {
             Timber.w(e, "Failed to parse code item at offset $offset")
-            Triple(0, emptyList(), emptyList())
+            CodeItemParseResult(0, emptyList(), emptyList(), emptyList())
         }
     }
+
+    private data class CodeItemParseResult(
+        val instructionCount: Int,
+        val referencedStrings: List<String>,
+        val referencedMethods: List<String>,
+        val instructions: List<com.pineandpackets.pocketlab.core.model.DexInstruction>
+    )
     
     private fun getInstructionWidth(opcode: Int): Int {
         return when (opcode) {

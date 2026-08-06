@@ -3,6 +3,8 @@ package com.pineandpackets.pocketlab.feature.report
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -10,12 +12,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.pineandpackets.pocketlab.core.crypto.AnalystNote
 import com.pineandpackets.pocketlab.core.model.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalystReportView(
     report: AnalysisReport,
+    notes: List<AnalystNote>,
+    onAddNote: (String) -> Unit,
+    onDeleteNote: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var expandedSection by remember { mutableStateOf("overview") }
@@ -131,7 +137,22 @@ fun AnalystReportView(
                 FindingsContent(report.findings)
             }
         }
-        
+
+        item {
+            AnalystSectionCard(
+                title = "Analyst Notes (${notes.size})",
+                sectionKey = "notes",
+                expanded = expandedSection == "notes",
+                onToggle = { expandedSection = if (expandedSection == "notes") "" else "notes" }
+            ) {
+                AnalystNotesContent(
+                    notes = notes,
+                    onAddNote = onAddNote,
+                    onDeleteNote = onDeleteNote
+                )
+            }
+        }
+
         if (report.errors.isNotEmpty()) {
             item {
                 AnalystSectionCard(
@@ -598,5 +619,80 @@ private fun buildEvidenceText(evidence: Evidence): String {
         parts.joinToString(" | ")
     } else {
         "evidence"
+    }
+}
+
+@Composable
+private fun AnalystNotesContent(
+    notes: List<AnalystNote>,
+    onAddNote: (String) -> Unit,
+    onDeleteNote: (String) -> Unit
+) {
+    var newNoteText by remember { mutableStateOf("") }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        OutlinedTextField(
+            value = newNoteText,
+            onValueChange = { newNoteText = it },
+            label = { Text("Add analyst note") },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 3,
+            maxLines = 6
+        )
+
+        Button(
+            onClick = {
+                onAddNote(newNoteText)
+                newNoteText = ""
+            },
+            enabled = newNoteText.isNotBlank(),
+            modifier = Modifier.align(Alignment.End)
+        ) {
+            Text("Add Note")
+        }
+
+        if (notes.isEmpty()) {
+            Text(
+                text = "No analyst notes yet.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            notes.forEach { note ->
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = note.content,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = java.text.SimpleDateFormat(
+                                    "yyyy-MM-dd HH:mm",
+                                    java.util.Locale.getDefault()
+                                ).format(java.util.Date(note.createdAt)),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            IconButton(onClick = { onDeleteNote(note.id) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete note"
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

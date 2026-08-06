@@ -70,6 +70,9 @@ fun ReportScreen(
                         ReportViewMode.ANALYST -> {
                             AnalystReportView(
                                 report = uiState.report!!,
+                                notes = uiState.notes,
+                                onAddNote = { viewModel.addNote(caseId, it) },
+                                onDeleteNote = { viewModel.deleteNote(caseId, it) },
                                 modifier = Modifier.fillMaxSize()
                             )
                         }

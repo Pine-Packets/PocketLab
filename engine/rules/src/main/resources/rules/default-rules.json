@@ -136,22 +136,122 @@
     "recommendations": ["Verify location access is user-initiated", "Check if background location is necessary"]
   },
   {
-    "id": "PERM-INSTALL-PACKAGES",
-    "title": "Package Installation Permission",
-    "category": "permission",
-    "severity": "CRITICAL",
-    "confidence": "HIGH",
-    "description": "App can request to install other packages",
-    "analystDescription": "The application has the REQUEST_INSTALL_PACKAGES permission, allowing it to install other applications. This is a high-risk permission commonly seen in malware that downloads and installs additional payloads.",
+    "id": "CORR-DYNAMIC-DEX-STORAGE",
+    "title": "Dynamic Code Loading with Storage Access",
+    "category": "behavior_combination",
+    "severity": "HIGH",
+    "confidence": "MEDIUM",
+    "description": "App loads code dynamically and has storage access permissions, a combination sometimes used to execute downloaded payloads",
+    "analystDescription": "The application uses DexClassLoader or PathClassLoader to load code dynamically and also declares storage read/write permissions. While each can be legitimate, together they can enable downloading and executing external payloads.",
     "whenClause": {
-      "any": [
-        {"fact": "PERMISSION_INSTALL_PACKAGES"}
+      "all": [
+        {"fact": "CODE_DYNAMIC_DEX_LOADING"},
+        {"any": [
+          {"fact": "PERMISSION_STORAGE_READ"},
+          {"fact": "PERMISSION_STORAGE_WRITE"}
+        ]}
       ]
     },
     "evidence": [
-      {"type": "MANIFEST_DECLARATION", "excerpt": "<uses-permission android:name=\"android.permission.REQUEST_INSTALL_PACKAGES\"/>"}
+      {"type": "DEX_CALL_SITE", "excerpt": "DexClassLoader or PathClassLoader referenced"},
+      {"type": "MANIFEST_DECLARATION", "excerpt": "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>"}
     ],
-    "limitations": ["Permission may be legitimate for app stores or enterprise apps"],
-    "recommendations": ["Verify if package installation is necessary", "Check installation sources"]
+    "limitations": ["Storage access may be used for legitimate file operations", "Dynamic loading may be used by legitimate plugin architectures"],
+    "recommendations": ["Verify dynamic loading is necessary and constrained", "Review downloaded content sources"]
+  },
+  {
+    "id": "CORR-SHELL-EXECUTION",
+    "title": "Shell Command Execution Detected",
+    "category": "behavior_combination",
+    "severity": "CRITICAL",
+    "confidence": "HIGH",
+    "description": "App contains code that can execute shell commands",
+    "analystDescription": "The application references Runtime.exec or ProcessBuilder with reconstructible command strings. This is a strong indicator of capability to execute arbitrary shell commands, which is frequently abused by malware.",
+    "whenClause": {
+      "any": [
+        {"fact": "CODE_SHELL_EXECUTION"},
+        {"fact": "CODE_SHELL_COMMAND"}
+      ]
+    },
+    "evidence": [
+      {"type": "DEX_CALL_SITE", "excerpt": "Runtime.exec or ProcessBuilder referenced"}
+    ],
+    "limitations": ["Command strings may be benign (e.g., reading device info)", "Static analysis cannot prove commands execute"],
+    "recommendations": ["Inspect reconstructed command strings", "Avoid executing shell commands from untrusted inputs"]
+  },
+  {
+    "id": "CORR-REFLECTION-NETWORK",
+    "title": "Reflection Combined with Network Capability",
+    "category": "behavior_combination",
+    "severity": "MEDIUM",
+    "confidence": "MEDIUM",
+    "description": "App uses reflection and has network permissions, a combination sometimes used to conceal malicious behavior",
+    "analystDescription": "The application declares the INTERNET permission and uses reflection (Class.forName or Method.invoke). Reflection can be used to hide API calls from static analysis, and combined with network access it may fetch or execute remote logic.",
+    "whenClause": {
+      "all": [
+        {"fact": "PERMISSION_INTERNET"},
+        {"any": [
+          {"fact": "CODE_REFLECTION_CLASS_FOR_NAME"},
+          {"fact": "CODE_REFLECTION_METHOD_INVOKE"}
+        ]}
+      ]
+    },
+    "evidence": [
+      {"type": "DEX_CALL_SITE", "excerpt": "Class.forName or Method.invoke referenced"},
+      {"type": "MANIFEST_DECLARATION", "excerpt": "<uses-permission android:name=\"android.permission.INTERNET\"/>"}
+    ],
+    "limitations": ["Reflection is common in legitimate libraries and frameworks", "Network access alone is normal for most apps"],
+    "recommendations": ["Review reflected classes and methods", "Verify network destinations are trustworthy"]
+  },
+  {
+    "id": "CORR-SMS-API",
+    "title": "SMS Permissions with Code References",
+    "category": "behavior_combination",
+    "severity": "HIGH",
+    "confidence": "HIGH",
+    "description": "App declares SMS permissions and references SMS-related APIs in code",
+    "analystDescription": "The application declares SMS permissions and its code references SMS APIs. This increases confidence that the declared permissions are actively used, which is relevant for premium SMS fraud and SMS exfiltration analysis.",
+    "whenClause": {
+      "all": [
+        {"any": [
+          {"fact": "PERMISSION_SMS_SEND"},
+          {"fact": "PERMISSION_SMS_READ"}
+        ]},
+        {"any": [
+          {"fact": "API_REFERENCE", "contains": "SmsManager"},
+          {"fact": "API_REFERENCE", "contains": "Telephony.Sms"}
+        ]}
+      ]
+    },
+    "evidence": [
+      {"type": "MANIFEST_DECLARATION", "excerpt": "<uses-permission android:name=\"android.permission.SEND_SMS\"/>"},
+      {"type": "DEX_CALL_SITE", "excerpt": "SmsManager referenced"}
+    ],
+    "limitations": ["SMS functionality may be legitimate (e.g., two-factor authentication)"],
+    "recommendations": ["Verify SMS recipients and message content", "Check if SMS permission is necessary"]
+  },
+  {
+    "id": "CORR-ACCESSIBILITY-OVERLAY",
+    "title": "Accessibility Service with Overlay Permission",
+    "category": "behavior_combination",
+    "severity": "HIGH",
+    "confidence": "MEDIUM",
+    "description": "App declares accessibility service and overlay permission, a combination often used for screen interaction attacks",
+    "analystDescription": "The application declares an accessibility service and the SYSTEM_ALERT_WINDOW permission. Together these capabilities can interact with screen content and draw over other applications, which is a common pattern in remote-control and credential-theft malware.",
+    "whenClause": {
+      "all": [
+        {"any": [
+          {"fact": "PERMISSION_ACCESSIBILITY_SERVICE"},
+          {"fact": "COMPONENT_ACCESSIBILITY_SERVICE"}
+        ]},
+        {"fact": "PERMISSION_OVERLAY"}
+      ]
+    },
+    "evidence": [
+      {"type": "MANIFEST_DECLARATION", "excerpt": "<uses-permission android:name=\"android.permission.BIND_ACCESSIBILITY_SERVICE\"/>"},
+      {"type": "MANIFEST_DECLARATION", "excerpt": "<uses-permission android:name=\"android.permission.SYSTEM_ALERT_WINDOW\"/>"}
+    ],
+    "limitations": ["Accessibility services are legitimate for assistive technology", "Overlay permission may be used for legitimate floating UI"],
+    "recommendations": ["Verify publisher and purpose before enabling accessibility", "Review overlay usage"]
   }
 ]

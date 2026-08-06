@@ -139,7 +139,7 @@ class AnalysisPipeline {
             
             if (apkInfo != null) {
                 emit(AnalysisProgress.StageStarted("rules", "Evaluating rules"))
-                findings.addAll(rulesEngine.evaluateRules(apkInfo))
+                findings.addAll(rulesEngine.evaluateRules(apkInfo, dexInfos))
                 emit(AnalysisProgress.StageComplete("rules"))
             }
             

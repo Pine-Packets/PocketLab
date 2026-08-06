@@ -1,13 +1,14 @@
 package com.pineandpackets.pocketlab.engine.rules
 
+import com.pineandpackets.pocketlab.core.model.ApkInfo
+import com.pineandpackets.pocketlab.core.model.ComponentInfo
 import com.pineandpackets.pocketlab.core.model.Confidence
 import com.pineandpackets.pocketlab.core.model.Evidence
 import com.pineandpackets.pocketlab.core.model.EvidenceType
 import com.pineandpackets.pocketlab.core.model.Finding
-import com.pineandpackets.pocketlab.core.model.Severity
-import com.pineandpackets.pocketlab.core.model.ApkInfo
 import com.pineandpackets.pocketlab.core.model.PermissionInfo
-import com.pineandpackets.pocketlab.core.model.ComponentInfo
+import com.pineandpackets.pocketlab.core.model.Severity
+import com.pineandpackets.pocketlab.core.model.DexInfo
 import timber.log.Timber
 import java.util.UUID
 
@@ -22,14 +23,23 @@ class RulesEngine {
     }
     
     /**
-     * Load default rules from resources.
+     * Load default rules from classpath resources.
      */
     private fun loadDefaultRules() {
         try {
-            val rulesFile = java.io.File("engine/rules/src/main/resources/rules/default-rules.json")
-            if (rulesFile.exists()) {
+            val classLoader = RulesEngine::class.java.classLoader
+            val resourceUrl = classLoader?.getResource("rules/default-rules.json")
+            if (resourceUrl != null) {
+                val rulesFile = java.io.File(resourceUrl.toURI())
                 declarativeRules = ruleInterpreter.loadRules(rulesFile)
-                Timber.i("Loaded ${declarativeRules.size} declarative rules")
+                Timber.i("Loaded ${declarativeRules.size} declarative rules from classpath")
+            } else {
+                // Fallback to project-relative path for local development
+                val fallbackFile = java.io.File("engine/rules/src/main/resources/rules/default-rules.json")
+                if (fallbackFile.exists()) {
+                    declarativeRules = ruleInterpreter.loadRules(fallbackFile)
+                    Timber.i("Loaded ${declarativeRules.size} declarative rules from fallback path")
+                }
             }
         } catch (e: Exception) {
             Timber.w(e, "Failed to load default rules, using hardcoded rules only")
@@ -43,11 +53,11 @@ class RulesEngine {
         declarativeRules = ruleInterpreter.loadRules(file)
     }
     
-    fun evaluateRules(apkInfo: ApkInfo): List<Finding> {
+    fun evaluateRules(apkInfo: ApkInfo, dexInfoList: List<DexInfo> = emptyList()): List<Finding> {
         val findings = mutableListOf<Finding>()
         
         // Evaluate declarative rules
-        val facts = factExtractor.extractFacts(apkInfo)
+        val facts = factExtractor.extractFacts(apkInfo, dexInfoList)
         findings.addAll(ruleInterpreter.evaluateRules(declarativeRules, facts))
         
         // Evaluate hardcoded rules (for backwards compatibility)

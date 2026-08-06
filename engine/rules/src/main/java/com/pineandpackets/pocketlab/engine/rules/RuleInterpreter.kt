@@ -41,10 +41,12 @@ data class UnlessClause(
 
 @Serializable
 data class Condition(
-    val fact: String,
+    val fact: String? = null,
     val value: String? = null,
     val contains: String? = null,
-    val matches: String? = null
+    val matches: String? = null,
+    val all: List<Condition>? = null,
+    val any: List<Condition>? = null
 )
 
 @Serializable
@@ -140,34 +142,44 @@ class RuleInterpreter {
     }
     
     /**
-     * Evaluate a single condition against facts.
+     * Evaluate a single condition against facts. Conditions may be nested.
      */
     private fun evaluateCondition(condition: Condition, facts: Set<Fact>): Boolean {
-        val matchingFacts = facts.filter { it.type == condition.fact }
-        
+        // Nested condition groups take precedence over leaf conditions
+        if (condition.all != null) {
+            return condition.all.all { evaluateCondition(it, facts) }
+        }
+
+        if (condition.any != null) {
+            return condition.any.any { evaluateCondition(it, facts) }
+        }
+
+        val factType = condition.fact ?: return false
+        val matchingFacts = facts.filter { it.type == factType }
+
         if (matchingFacts.isEmpty()) return false
-        
+
         // If no value/contains/matches specified, just check if fact exists
         if (condition.value == null && condition.contains == null && condition.matches == null) {
             return true
         }
-        
+
         // Check exact value match
         if (condition.value != null) {
             return matchingFacts.any { it.value == condition.value }
         }
-        
+
         // Check contains match
         if (condition.contains != null) {
             return matchingFacts.any { it.value.contains(condition.contains, ignoreCase = true) }
         }
-        
+
         // Check regex match
         if (condition.matches != null) {
             val regex = Regex(condition.matches, RegexOption.IGNORE_CASE)
             return matchingFacts.any { regex.matches(it.value) }
         }
-        
+
         return false
     }
     
@@ -214,11 +226,12 @@ class RuleInterpreter {
     
     /**
      * Check if a fact matches any condition in the when clause.
+     * Nested condition groups are not considered for evidence matching.
      */
     private fun matchesAnyCondition(fact: Fact, whenClause: WhenClause): Boolean {
         val conditions = whenClause.all ?: whenClause.any ?: return false
         return conditions.any { condition ->
-            condition.fact == fact.type && 
+            condition.fact == fact.type &&
             (condition.value == null || condition.value == fact.value)
         }
     }

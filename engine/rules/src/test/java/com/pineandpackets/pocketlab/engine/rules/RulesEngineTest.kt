@@ -1,8 +1,10 @@
 package com.pineandpackets.pocketlab.engine.rules
 
 import com.pineandpackets.pocketlab.core.model.ApkInfo
+import com.pineandpackets.pocketlab.core.model.ApiReference
 import com.pineandpackets.pocketlab.core.model.ComponentInfo
 import com.pineandpackets.pocketlab.core.model.Confidence
+import com.pineandpackets.pocketlab.core.model.DexInfo
 import com.pineandpackets.pocketlab.core.model.Evidence
 import com.pineandpackets.pocketlab.core.model.EvidenceType
 import com.pineandpackets.pocketlab.core.model.Finding
@@ -89,6 +91,119 @@ class RulesEngineTest {
         
         assertTrue(findings.isNotEmpty())
         assertTrue(findings.all { it.evidence.isNotEmpty() })
+    }
+    
+    @Test
+    fun `detect dynamic DEX loading with storage permission correlation`() {
+        val apkInfo = createApkInfo(
+            permissions = listOf(
+                PermissionInfo("android.permission.READ_EXTERNAL_STORAGE", "dangerous", true, null)
+            )
+        )
+        val dexInfo = createDexInfo(
+            apiReferences = listOf(
+                ApiReference(
+                    className = "Ldalvik/system/DexClassLoader;",
+                    methodName = "<init>",
+                    callSites = emptyList()
+                )
+            )
+        )
+        
+        val findings = rulesEngine.evaluateRules(apkInfo, listOf(dexInfo))
+        
+        assertTrue(findings.any { it.ruleId == "CORR-DYNAMIC-DEX-STORAGE" })
+    }
+    
+    @Test
+    fun `detect shell execution correlation`() {
+        val apkInfo = createApkInfo()
+        val dexInfo = createDexInfo(
+            apiReferences = listOf(
+                ApiReference(
+                    className = "Ljava/lang/Runtime;",
+                    methodName = "exec",
+                    callSites = emptyList()
+                )
+            )
+        )
+        
+        val findings = rulesEngine.evaluateRules(apkInfo, listOf(dexInfo))
+        
+        assertTrue(findings.any { it.ruleId == "CORR-SHELL-EXECUTION" })
+        assertEquals(Severity.CRITICAL, findings.find { it.ruleId == "CORR-SHELL-EXECUTION" }?.severity)
+    }
+    
+    @Test
+    fun `detect reflection with internet correlation`() {
+        val apkInfo = createApkInfo(
+            permissions = listOf(
+                PermissionInfo("android.permission.INTERNET", "normal", true, null)
+            )
+        )
+        val dexInfo = createDexInfo(
+            apiReferences = listOf(
+                ApiReference(
+                    className = "Ljava/lang/Class;",
+                    methodName = "forName",
+                    callSites = emptyList()
+                )
+            )
+        )
+        
+        val findings = rulesEngine.evaluateRules(apkInfo, listOf(dexInfo))
+        
+        assertTrue(findings.any { it.ruleId == "CORR-REFLECTION-NETWORK" })
+    }
+    
+    @Test
+    fun `detect SMS permission with SMS API correlation`() {
+        val apkInfo = createApkInfo(
+            permissions = listOf(
+                PermissionInfo("android.permission.SEND_SMS", "dangerous", true, null)
+            )
+        )
+        val dexInfo = createDexInfo(
+            apiReferences = listOf(
+                ApiReference(
+                    className = "Landroid/telephony/SmsManager;",
+                    methodName = "sendTextMessage",
+                    callSites = emptyList()
+                )
+            )
+        )
+        
+        val findings = rulesEngine.evaluateRules(apkInfo, listOf(dexInfo))
+        
+        assertTrue(findings.any { it.ruleId == "CORR-SMS-API" })
+    }
+    
+    @Test
+    fun `no correlation finding when only one condition present`() {
+        val apkInfo = createApkInfo(
+            permissions = listOf(
+                PermissionInfo("android.permission.INTERNET", "normal", true, null)
+            )
+        )
+        val dexInfo = createDexInfo()
+        
+        val findings = rulesEngine.evaluateRules(apkInfo, listOf(dexInfo))
+        
+        assertFalse(findings.any { it.ruleId == "CORR-REFLECTION-NETWORK" })
+    }
+    
+    private fun createDexInfo(
+        apiReferences: List<ApiReference> = emptyList()
+    ): DexInfo {
+        return DexInfo(
+            name = "classes.dex",
+            version = "035",
+            classCount = 1,
+            methodCount = 1,
+            stringCount = 1,
+            size = 1024,
+            apiReferences = apiReferences
+        )
     }
     
     private fun createApkInfo(

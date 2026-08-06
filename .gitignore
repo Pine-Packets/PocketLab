@@ -1,3 +1,6 @@
+# Kotlin compiler sessions
+.kotlin/
+
 # Built application files
 *.apk
 *.ap_

@@ -1,12 +1,12 @@
 # PocketLab Implementation Status
 
-**Last Updated:** 2026-08-06  
+**Last Updated:** 2026-08-06 (end of session)  
 **Project:** PocketLab - Android Static Malware Analysis App  
 **Organization:** Pine and Packets LLC
 
-## Current Phase: Phase 8 (Reporting and Export) - MOSTLY COMPLETE
+## Current Phase: Phase 8 (Reporting and Export) - COMPLETE
 
-**Actual Progress:** The codebase is at Phase 8 out of 13 planned phases. See GAP_ANALYSIS.md for detailed gap analysis.
+**Actual Progress:** The codebase is at Phase 8 of 13. Recent work completed constant propagation, correlation rules, debug certificate detection, analyst notes, report redaction settings, and golden report snapshots.
 
 ## Overall Progress
 
@@ -74,16 +74,16 @@
 - ✅ APK file inventory with type detection
 - ✅ APK structural validation via ApkStructureValidator
 
-### Phase 5: Signing Analysis 🔄 PARTIALLY COMPLETE
+### Phase 5: Signing Analysis ✅ MOSTLY COMPLETE
 - ✅ SigningAnalyzer for certificate extraction
 - ✅ Signature scheme detection (v1, basic v2/v3)
 - ✅ Certificate fingerprint calculation
 - ✅ Self-signed certificate detection
 - ✅ APK Signing Block detection
+- ✅ Debug certificate detection
 - ❌ AOSP apksig integration
 - ❌ Actual cryptographic verification (verified=false, honest)
 - ❌ Signing lineage parsing
-- ❌ Debug certificate detection
 
 ### Phase 6: DEX Analysis ✅ MOSTLY COMPLETE
 - ✅ DexAnalyzer for DEX file parsing
@@ -93,11 +93,14 @@
 - ✅ Endian tag validation
 - ✅ String table extraction with MUTF-8 decoding
 - ✅ Method/field/class ID table parsing
-- ✅ Code item parsing
+- ✅ Code item parsing with instruction lists
 - ✅ Basic Dalvik instruction decoding
 - ✅ API reference indexes
 - ✅ API capability map with 80+ Android API mappings
 - ✅ Reflection and dynamic-loading detection via ReflectionDetector
+- ✅ Bounded constant propagation for string reconstruction
+- ❌ Full constant propagation across all opcodes
+- ❌ Interprocedural analysis
 
 ### Phase 7: IOC Extraction and Rules Engine ✅ MOSTLY COMPLETE
 - ✅ IocExtractor for URLs, domains, IPs, emails
@@ -109,11 +112,13 @@
 - ✅ Declarative rule interpreter (RuleInterpreter)
 - ✅ Fact extraction system (FactExtractor)
 - ✅ 8 default declarative rules in JSON format
+- ✅ Nested condition support in rule interpreter
 - ✅ Code analysis stage in pipeline with reflection detection
-- ❌ Constant propagation
-- ❌ Correlation rules
+- ✅ Correlation rules combining manifest and code facts
+- ❌ Full interprocedural correlation
+- ❌ Taint tracking
 
-### Phase 8: Reporting and Export ✅ MOSTLY COMPLETE
+### Phase 8: Reporting and Export ✅ COMPLETE
 - ✅ ReportSerializer for JSON serialization
 - ✅ ReportExporter with JSON, Markdown, HTML, and CSV formats
 - ✅ HTML escaping to prevent XSS attacks
@@ -124,9 +129,10 @@
 - ✅ Analyst Report UI view
 - ✅ View mode toggle (Simple/Analyst)
 - ✅ Demo fixture generator
-- ❌ Report redaction settings
-- ❌ Analyst notes
-- ❌ Golden report snapshots
+- ✅ Report redaction settings (secrets, IOCs, filename)
+- ✅ Encrypted analyst notes merged at render time
+- ✅ Golden report snapshots
+- ⚠️ PDF export not implemented (deferred)
 
 ### Phase 9: Process Isolation ✅ IMPLEMENTED (not tested on device)
 - ✅ AIDL interface (IAnalyzerService, IAnalyzerCallback) for IPC
@@ -146,13 +152,12 @@
 ## Critical Gaps Summary
 
 1. **No cryptographic signature verification** - Honest about not verifying (verified=false)
-2. **No constant propagation** - Cannot reconstruct obfuscated strings
-3. **No correlation rules** - Cannot combine multiple facts for advanced findings
-4. **No report redaction settings** - Cannot customize report sensitivity
-5. **No analyst notes** - Cannot add custom annotations to reports
-6. **No golden report snapshots** - No regression testing for reports
-7. **No selective archive extraction** - Cannot extract specific entries safely
-8. **No pipeline integration tests** - Limited end-to-end test coverage
+2. **No AOSP apksig integration** - Debug certificate detection only
+3. **No selective archive extraction** - Cannot extract specific entries safely
+4. **No pipeline integration tests** - Limited end-to-end test coverage
+5. **Settings screen is placeholder** - Retention/cleanup worker not implemented
+6. **No available storage check before staging**
+7. **No device capability profiling**
 
 ## Test Coverage
 
@@ -174,13 +179,17 @@
 - ✅ BinaryXmlParserTest (binary XML parsing)
 - ✅ ApkAnalyzerTest (APK analysis)
 - ✅ DexAnalyzerTest (DEX parsing)
+- ✅ ConstantPropagatorTest (string reconstruction)
+- ✅ RulesEngineTest with correlation rule tests
+- ✅ ReportRedactorTest (redaction settings)
+- ✅ GoldenReportTest (report snapshot regression)
 - ❌ Pipeline integration tests
 
 ### Test Results
-- **Total Tests:** ~100 test cases
+- **Total Tests:** ~130 test cases
 - **Status:** All passing
-- **Coverage:** Core functionality, security controls, parsers
-- **Missing:** Pipeline integration tests, golden report tests
+- **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports
+- **Missing:** Pipeline integration tests, archive selective extraction tests
 
 ## Build Status
 
@@ -238,32 +247,38 @@
 
 ### Immediate (Critical)
 1. Add pipeline integration tests
-2. Create golden report snapshots
-3. Implement constant propagation for string reconstruction
-4. Add correlation rules for multi-fact findings
-5. Implement selective archive extraction
+2. Implement selective archive extraction
+3. Complete Settings screen and retention/cleanup worker
+4. Add available storage check before staging
+5. Add device capability profiling
 
 ### Short-term
-1. Implement report redaction settings
-2. Add analyst notes functionality
-3. Add debug certificate detection
-4. Enhance signing analysis with AOSP apksig
-5. Add comprehensive fuzzing tests
+1. AOSP apksig integration for cryptographic signature verification
+2. Signing lineage parsing
+3. Add comprehensive fuzzing tests
+4. Native ELF analysis expansion
 
 ### Long-term
-1. Native ELF analysis
-2. Password-protected archive decryption
-3. Play Store release preparation
-4. Advanced code analysis (taint tracking, data flow)
-5. Machine learning for malware classification
+1. Password-protected archive decryption
+2. Play Store release preparation
+3. Advanced code analysis (taint tracking, data flow)
+4. Machine learning for malware classification
 
 ## Conclusion
 
-PocketLab has made significant progress and is now at Phase 8 of 13. The critical path forward is:
-1. Add comprehensive test coverage (integration tests, golden reports)
-2. Implement advanced code analysis (constant propagation, correlation rules)
-3. Complete report customization features
-4. Enhance signing analysis with cryptographic verification
+PocketLab has made significant progress and Phase 8 is now complete. The recent session added:
+- Bounded constant propagation for DEX string reconstruction
+- Correlation rules combining manifest and code facts
+- Debug signing certificate detection
+- Encrypted analyst notes (stored separately, merged at render time)
+- Report redaction settings for safer exports
+- Golden report snapshots for regression testing
+
+The critical path forward is:
+1. Add comprehensive pipeline integration tests
+2. Implement selective archive extraction
+3. Complete Settings screen, retention/cleanup worker, and storage profiling
+4. Enhance signing analysis with AOSP apksig cryptographic verification
 5. Prepare for Play Store release
 
-Estimated time to MVP: 3-4 weeks of full-time development.
+Estimated time to MVP: 2-3 weeks of full-time development.

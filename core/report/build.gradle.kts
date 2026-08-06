@@ -5,6 +5,9 @@ plugins {
 
 android {
     namespace = "com.pineandpackets.pocketlab.core.report"
+
+    sourceSets["main"].resources.srcDir("../../test-corpus")
+    sourceSets["test"].resources.srcDir("../../test-corpus")
 }
 
 dependencies {
@@ -14,6 +17,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.timber)
 
+    testImplementation(project(":core:testing"))
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.kotest.runner.junit5)

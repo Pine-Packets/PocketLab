@@ -1,5 +1,6 @@
 plugins {
     id("pocketlab.android.library")
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -9,6 +10,7 @@ android {
 dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:model"))
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.junit)
     implementation(libs.kotlinx.coroutines.test)
     implementation(libs.kotest.runner.junit5)

@@ -1,6 +1,6 @@
 # PocketLab Implementation Status
 
-**Last Updated:** 2026-08-06 (session continued - property-based path and IOC safety tests)  
+**Last Updated:** 2026-08-06 (session continued - native ELF analysis expansion)  
 **Project:** PocketLab - Android Static Malware Analysis App  
 **Organization:** Pine and Packets LLC
 
@@ -181,9 +181,13 @@
 - ✅ CaseZipTextScanner inventories text/notes entries in case archives with bounded per-entry and total scan quotas; extracts indicators with container/entry provenance (WF-004)
 - ✅ Archive report section records textEntryInventory with extracted indicators
 
-### Phase 11-12: ❌ NOT STARTED
-- Native ELF analysis (header parser exists)
-- Play Store release preparation
+### Phase 11-12: IN PROGRESS
+- ✅ Native ELF analysis expansion: `ElfAnalyzer` rewritten to a bounded, read-only ELF parser that extracts sections (with names via `.shstrtab`), program headers, `.symtab`/`.dynsym` symbols, `DT_NEEDED` dynamic dependencies, and `Java_*` JNI exports
+- ✅ Executable-writable segment detection (PT_LOAD with both PF_X and PF_W) as a native capability fact
+- ✅ Strip-status detection (no `.symtab` symbols), architecture/ABI mapping (ARM/armeabi-v7a, AArch64/arm64-v8a, x86, x86_64), endianness, entry point, and size quota
+- ✅ All counts capped (sections/program headers, symbols, dynamic entries, JNI exports, string length) with quota rejection for oversized files
+- ✅ 5 additional ElfAnalyzer tests using a synthetic `Elf64Builder` fixture (dynamic dependencies, JNI exports, symbol extraction, executable-writable segment, R-X not flagged, truncated section table) plus a size-quota test
+- ❌ Play Store release preparation
 
 ## Critical Gaps Summary
 
@@ -206,7 +210,7 @@
 - ✅ ProcessCrashDetectorTest (crash detection and recovery)
 - ✅ CheckpointManagerTest (checkpoint persistence)
 - ✅ IsolatedAnalysisRequestTest (request serialization and budgets)
-- ✅ ElfAnalyzerTest (ELF header parsing)
+- ✅ ElfAnalyzerTest (ELF header parsing, sections, program headers, symbols, dynamic dependencies, JNI exports, exec+write segment, strip status, size quota)
 - ✅ BinaryXmlParserTest (binary XML parsing)
 - ✅ ApkAnalyzerTest (APK analysis)
 - ✅ ApksigVerifierTest (apksig integration verification)
@@ -226,9 +230,9 @@
 - ✅ NestedArchiveTest (nested depth reporting, max compression ratio, unsupported entries)
 
 ### Test Results
-- **Total Tests:** 260 test cases
+- **Total Tests:** 265 test cases
 - **Status:** All passing
-- **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation, split APK set construction, raw-APK and case-archive pipeline dispatch, multi-file intake staging orchestration, case ZIP notes/text inventory, analysis view-model state orchestration, property-based archive path safety, property-based IOC extraction invariants
+- **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation, split APK set construction, raw-APK and case-archive pipeline dispatch, multi-file intake staging orchestration, case ZIP notes/text inventory, analysis view-model state orchestration, property-based archive path safety, property-based IOC extraction invariants, native ELF symbol/dependency/JNI/segment analysis
 - **Missing:** Archive UI tests, signed APK fixtures for apksig
 
 ## Build Status
@@ -251,7 +255,6 @@
 
 ### Future Work
 - Add comprehensive fuzzing tests
-- Native ELF analysis expansion
 - Play Store release preparation
 - Advanced code analysis (taint tracking, data flow)
 
@@ -294,6 +297,7 @@
 34. **Centralized Archive Path Normalizer**: ArchivePathNormalizer centralizes traversal/absolute/drive/NUL rejection and normalization, shared by the archive analyzer, with rejection of empty and drive-prefixed normalized paths
 35. **Property-Based Security Tests**: Seed-fixed kotest-property suites over arbitrary hostile inputs — archive paths never escape the workspace root or resolve outside it on disk, normalization is idempotent, rejected paths are suspicious or degenerate; IOC extraction is deterministic, deduplicated, substring-faithful, refang round-trip safe, scheme-defanged, and junk-only text never reports indicators
 36. **Full Archive Report Rendering**: Analyst archive section now displays observed expanded size, max observed compression ratio, nested depth, unsupported entries, skipped entries with reasons, quota events, and the WF-004 case notes/text-entry inventory with scanned bytes, charset, and extracted indicator previews
+37. **Native ELF Analysis**: Bounded read-only ELF parser extracting sections, program headers, symbols, dynamic dependencies, and JNI exports with executable-writable segment and strip-status detection; synthetic ELF64 fixture builder for parser tests
 
 ## Repository
 
@@ -305,7 +309,6 @@
 
 ### Immediate (Critical)
 1. Add comprehensive fuzzing tests (beyond the initial property-based suite)
-2. Native ELF analysis expansion
 
 ### Short-term
 1. Play Store release preparation
@@ -325,13 +328,13 @@ PocketLab has made significant progress. The recent session added:
 - AnalysisViewModel + AnalysisScreen: real analysis execution on staged cases via the AnalysisOrchestrator, stage progress streaming into Compose UI, encrypted report persistence, case-index update, cancellation, and error handling; CaseRepository gained a `createCaseWithId` overload so the analysis flow can create the case row for an existing staged workspace
 - ArchivePathNormalizer: centralized, property-tested path-safety logic (traversal, absolute, drive, NUL, empty rejection) now shared by ArchiveAnalyzer
 - Property-based test suites (kotest-property, fixed seeds): 6 archive path-safety properties and 9 IOC extraction invariants over arbitrary hostile inputs
-- 3 pipeline regression/feature tests, 7 SplitApkSetBuilder tests, 6 IntakeStagingCoordinator tests, 5 CaseZipTextScanner tests, 1 pipeline notes-inventory test, 6 AnalysisViewModel tests, 6 archive path property tests, and 9 IOC property tests
+- Native ELF analysis: the `ElfAnalyzer` was rewritten into a bounded read-only parser that extracts section names, program headers (with executable-writable segment detection), `.symtab`/`.dynsym` symbols, `DT_NEEDED` dynamic dependencies, and `Java_*` JNI exports, plus strip-status and architecture/ABI mapping. A synthetic `Elf64Builder` test fixture exercises the new fields; all counts are capped and oversized inputs are quota-rejected.
+- 3 pipeline regression/feature tests, 7 SplitApkSetBuilder tests, 6 IntakeStagingCoordinator tests, 5 CaseZipTextScanner tests, 1 pipeline notes-inventory test, 6 AnalysisViewModel tests, 6 archive path property tests, 9 IOC property tests, and 5 additional native ELF tests
 
-Total tests: 260, all passing.
+Total tests: 265, all passing.
 
 The critical path forward is:
 1. Add comprehensive fuzzing tests (beyond the initial property-based suite)
-2. Native ELF analysis expansion
-3. Prepare for Play Store release
+2. Prepare for Play Store release
 
 Estimated time to MVP: 2-3 weeks of full-time development.

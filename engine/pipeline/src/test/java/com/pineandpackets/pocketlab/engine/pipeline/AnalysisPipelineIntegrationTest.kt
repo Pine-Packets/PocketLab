@@ -358,6 +358,95 @@ class AnalysisPipelineIntegrationTest {
         val packagesetStage = report.stageResults.find { it.stageId == "packageset" }
         assertNull(packagesetStage)
     }
+
+    @Test
+    fun `analyze raw APK runs APK analysis stages`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val apkFile = createMinimalApk()
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", apkFile, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        assertNotNull(completeEvent)
+        
+        val report = completeEvent!!.report
+        val apkStage = report.stageResults.find { it.stageId == "apk" }
+        assertNotNull("Raw APK analysis should run an 'apk' stage", apkStage)
+        val structureStage = report.stageResults.find { it.stageId == "apk_structure" }
+        assertNotNull("Raw APK analysis should run an 'apk_structure' stage", structureStage)
+    }
+    
+    @Test
+    fun `analyze case archive with contained APK extracts and analyzes APK`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val caseZip = createCaseArchiveWithApk()
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", caseZip, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        assertNotNull(completeEvent)
+        
+        val report = completeEvent!!.report
+        val apkStage = report.stageResults.find { it.stageId == "apk" }
+        assertNotNull("Case archive containing an APK should run an 'apk' stage", apkStage)
+        
+        // Archive section should inventory both the APK entry and the non-APK note entry
+        val archive = report.archive
+        assertNotNull(archive)
+        assertTrue(
+            "Archive section should inventory the contained APK entry",
+            archive!!.analyzedChildren.any { it.path.endsWith(".apk") }
+        )
+        assertTrue(
+            "Archive section should inventory non-APK case notes",
+            archive.analyzedChildren.any { it.path.endsWith(".txt") }
+        )
+        
+        assertTrue(
+            "Report should record container provenance for the analyzed APK",
+            report.limitations.any { it.contains("archive container") || it.contains("inside an archive") }
+        )
+    }
+    
+    @Test
+    fun `analyze split APK set built from multiple files produces package set report`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val apk1 = createMinimalApk()
+        val apk2 = createMinimalApk()
+        val outputDir = tempFolder.newFolder("split_out")
+        val builder = com.pineandpackets.pocketlab.engine.archive.SplitApkSetBuilder()
+        val buildResult = builder.build(listOf(apk1, apk2), outputDir)
+        assertTrue(buildResult.isSuccess)
+        
+        val splitSet = buildResult.getOrNull()!!.containerFile
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", splitSet, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        assertNotNull(completeEvent)
+        
+        val report = completeEvent!!.report
+        val packagesetStage = report.stageResults.find { it.stageId == "packageset" }
+        assertNotNull(
+            "Split APK set built from multiple user files should run a 'packageset' stage",
+            packagesetStage
+        )
+    }
+    
+    @Test
+    fun `analyze plain archive without APK does not run APK stages`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val plainZip = createPlainArchive()
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", plainZip, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        assertNotNull(completeEvent)
+        
+        val report = completeEvent!!.report
+        val apkStage = report.stageResults.find { it.stageId == "apk" }
+        assertNull("Plain archive without an APK should not run an 'apk' stage", apkStage)
+    }
     
     private fun createMinimalApk(): File {
         val apkFile = tempFolder.newFile("minimal_${System.nanoTime()}.apk")
@@ -379,6 +468,34 @@ class AnalysisPipelineIntegrationTest {
         val dexFile = tempFolder.newFile("classes_${System.nanoTime()}.dex")
         dexFile.writeBytes(createMinimalDexBytes())
         return dexFile
+    }
+    
+    private fun createCaseArchiveWithApk(): File {
+        val caseFile = tempFolder.newFile("case_${System.nanoTime()}.zip")
+        ZipOutputStream(caseFile.outputStream()).use { zos ->
+            val apkEntry = ZipEntry("evidence/sample.apk")
+            zos.putNextEntry(apkEntry)
+            zos.write(createMinimalApkBytes())
+            zos.closeEntry()
+            
+            val noteEntry = ZipEntry("analyst_notes.txt")
+            zos.putNextEntry(noteEntry)
+            zos.write(
+                "Suspicious APK received via email on 2026-08-06\nhttps://evil.example.com/payload.apk".toByteArray()
+            )
+            zos.closeEntry()
+        }
+        return caseFile
+    }
+    
+    private fun createPlainArchive(): File {
+        val plainFile = tempFolder.newFile("plain_${System.nanoTime()}.zip")
+        ZipOutputStream(plainFile.outputStream()).use { zos ->
+            zos.putNextEntry(ZipEntry("readme.txt"))
+            zos.write("hello world".toByteArray())
+            zos.closeEntry()
+        }
+        return plainFile
     }
     
     private fun createMinimalApks(): File {

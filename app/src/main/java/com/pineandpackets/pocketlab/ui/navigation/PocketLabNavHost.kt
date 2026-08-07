@@ -1,5 +1,6 @@
 package com.pineandpackets.pocketlab.ui.navigation
 
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -14,6 +15,8 @@ import com.pineandpackets.pocketlab.feature.intake.IntakeScreen
 import com.pineandpackets.pocketlab.feature.onboarding.OnboardingScreen
 import com.pineandpackets.pocketlab.feature.report.ReportScreen
 import com.pineandpackets.pocketlab.feature.settings.SettingsScreen
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 
 @Composable
 fun PocketLabNavHost(
@@ -32,8 +35,8 @@ fun PocketLabNavHost(
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
                 },
-                onAnalyzeFile = { uri ->
-                    navController.navigate(Screen.Intake.createRoute(uri.toString()))
+                onAnalyzeFile = { uris ->
+                    navController.navigate(Screen.Intake.createRoute(uris.map { it.toString() }))
                 }
             )
         }
@@ -77,11 +80,15 @@ fun PocketLabNavHost(
         
         composable(
             route = Screen.Intake.route,
-            arguments = listOf(navArgument("uri") { type = NavType.StringType })
+            arguments = listOf(navArgument("uris") { type = NavType.StringType })
         ) { backStackEntry ->
-            val uri = backStackEntry.arguments?.getString("uri") ?: return@composable
+            val encodedUris = backStackEntry.arguments?.getString("uris") ?: return@composable
+            val uris = runCatching {
+                Json.decodeFromString<List<String>>(Uri.decode(encodedUris))
+            }.getOrDefault(emptyList())
+            if (uris.isEmpty()) return@composable
             IntakeScreen(
-                uriString = uri,
+                uris = uris,
                 onAnalysisStarted = { caseId ->
                     navController.navigate(Screen.Analysis.createRoute(caseId)) {
                         popUpTo(Screen.Home.route)

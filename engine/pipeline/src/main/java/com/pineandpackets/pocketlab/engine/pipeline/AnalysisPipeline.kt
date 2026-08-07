@@ -1,6 +1,7 @@
 package com.pineandpackets.pocketlab.engine.pipeline
 
 import com.pineandpackets.pocketlab.core.common.AnalysisError as CommonAnalysisError
+import com.pineandpackets.pocketlab.core.common.AnalysisLimits
 import com.pineandpackets.pocketlab.core.model.AnalysisError as ModelAnalysisError
 import com.pineandpackets.pocketlab.core.model.*
 import com.pineandpackets.pocketlab.engine.apk.ApkAnalyzer
@@ -15,6 +16,7 @@ import com.pineandpackets.pocketlab.engine.filetype.FileTypeDetector
 import com.pineandpackets.pocketlab.engine.ioc.IocExtractor
 import com.pineandpackets.pocketlab.engine.rules.RulesEngine
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import timber.log.Timber
 import java.io.File
@@ -288,203 +290,51 @@ class AnalysisPipeline(
                             ))
                             emit(AnalysisProgress.StageFailed("packageset", errorMsg))
                         }
-                    } else if (detectedType == DetectedType.APK || archiveResult?.entries?.any { it.normalizedPath.endsWith(".apk") } == true) {
-                        emit(AnalysisProgress.StageStarted("apk_structure", "Validating APK structure"))
-                        val structureStart = System.currentTimeMillis()
-                        val structureResult = apkStructureValidator.validate(inputFile)
-                        if (structureResult.isValid) {
-                            stageResults.add(StageResult(
-                                stageId = "apk_structure",
-                                state = StageState.COMPLETE,
-                                startedAt = structureStart.toString(),
-                                completedAt = System.currentTimeMillis().toString(),
-                                progressCurrent = 100,
-                                progressTotal = 100,
-                                warningCount = structureResult.warnings.size,
-                                errorCode = null
-                            ))
-                            emit(AnalysisProgress.StageComplete("apk_structure"))
-                        } else {
-                            stageResults.add(StageResult(
-                                stageId = "apk_structure",
-                                state = StageState.FAILED,
-                                startedAt = structureStart.toString(),
-                                completedAt = System.currentTimeMillis().toString(),
-                                progressCurrent = 0,
-                                progressTotal = 100,
-                                warningCount = 0,
-                                errorCode = "APK_STRUCTURE_INVALID"
-                            ))
-                            errors.add(ModelAnalysisError(
-                                code = "APK_STRUCTURE_INVALID",
-                                message = structureResult.errors.joinToString("; "),
-                                stage = "apk_structure"
-                            ))
-                            emit(AnalysisProgress.StageFailed("apk_structure", structureResult.errors.joinToString("; ")))
-                        }
-                        
-                        emit(AnalysisProgress.StageStarted("apk", "Analyzing APK"))
-                        val apkStart = System.currentTimeMillis()
-                        val apkResult = apkAnalyzer.analyzeApk(inputFile)
-                        if (apkResult.isSuccess) {
-                            val apkAnalysisResult = apkResult.getOrNull()
-                            apkInfo = apkAnalysisResult?.apkInfo
-                            stageResults.add(StageResult(
-                                stageId = "apk",
-                                state = StageState.COMPLETE,
-                                startedAt = apkStart.toString(),
-                                completedAt = System.currentTimeMillis().toString(),
-                                progressCurrent = 100,
-                                progressTotal = 100,
-                                warningCount = 0,
-                                errorCode = null
-                            ))
-                            emit(AnalysisProgress.StageComplete("apk"))
-                            
-                            emit(AnalysisProgress.StageStarted("signing", "Verifying signatures"))
-                            val signingStart = System.currentTimeMillis()
-                            val signingResult = apksigVerifier.verify(inputFile)
-                            if (signingResult.verified && signingResult.signingInfo != null) {
-                                apkInfo = apkInfo?.copy(signingInfo = signingResult.signingInfo)
-                                stageResults.add(StageResult(
-                                    stageId = "signing",
-                                    state = StageState.COMPLETE,
-                                    startedAt = signingStart.toString(),
-                                    completedAt = System.currentTimeMillis().toString(),
-                                    progressCurrent = 100,
-                                    progressTotal = 100,
-                                    warningCount = signingResult.warnings.size,
-                                    errorCode = null
-                                ))
+                    } else {
+                        val hasApkEntries = archiveResult?.entries?.any { it.normalizedPath.endsWith(".apk") } == true
+                        if (hasApkEntries) {
+                            emit(AnalysisProgress.StageStarted("apk", "Analyzing APK contained in archive"))
+                            val apkStart = System.currentTimeMillis()
+                            val containedApk = extractPrimaryApk(inputFile)
+                            if (containedApk != null) {
+                                var containedInfo: ApkInfo? = null
+                                try {
+                                    containedInfo = analyzeApkFile(
+                                        containedApk, dexInfos, findings, errors, limitations, stageResults
+                                    )
+                                } finally {
+                                    containedApk.delete()
+                                }
+                                apkInfo = containedInfo
+                                if (apkInfo != null) {
+                                    limitations.add(
+                                        "APK was analyzed from inside an archive container; " +
+                                        "container entry inventory is recorded in the archive section"
+                                    )
+                                }
                             } else {
                                 stageResults.add(StageResult(
-                                    stageId = "signing",
+                                    stageId = "apk",
                                     state = StageState.FAILED,
-                                    startedAt = signingStart.toString(),
+                                    startedAt = apkStart.toString(),
                                     completedAt = System.currentTimeMillis().toString(),
                                     progressCurrent = 0,
                                     progressTotal = 100,
                                     warningCount = 0,
-                                    errorCode = "SIGNING_VERIFICATION_FAILED"
+                                    errorCode = "APK_ENTRY_EXTRACTION_FAILED"
                                 ))
-                                if (signingResult.errors.isNotEmpty()) {
-                                    errors.add(ModelAnalysisError(
-                                        code = "SIGNING_VERIFICATION_FAILED",
-                                        message = signingResult.errors.joinToString("; "),
-                                        stage = "signing"
-                                    ))
-                                }
-                            }
-                            emit(AnalysisProgress.StageComplete("signing"))
-                            
-                            emit(AnalysisProgress.StageStarted("dex", "Analyzing DEX files"))
-                            val dexStart = System.currentTimeMillis()
-                            val dexFiles = extractDexFiles(inputFile)
-                            var dexWarnings = 0
-                            dexFiles.forEach { dexFile ->
-                                val dexResult = dexAnalyzer.analyzeDex(dexFile)
-                                if (dexResult.isSuccess) {
-                                    dexResult.getOrNull()?.let { dexInfos.add(it) }
-                                } else {
-                                    dexWarnings++
-                                    errors.add(ModelAnalysisError(
-                                        code = "DEX_PARSE_ERROR",
-                                        message = dexResult.exceptionOrNull()?.message ?: "Unknown DEX parse error",
-                                        stage = "dex"
-                                    ))
-                                }
-                                dexFile.delete()
-                            }
-                            stageResults.add(StageResult(
-                                stageId = "dex",
-                                state = StageState.COMPLETE,
-                                startedAt = dexStart.toString(),
-                                completedAt = System.currentTimeMillis().toString(),
-                                progressCurrent = dexInfos.size,
-                                progressTotal = dexFiles.size,
-                                warningCount = dexWarnings,
-                                errorCode = null
-                            ))
-                            emit(AnalysisProgress.StageComplete("dex"))
-                            
-                            if (config.deepDexAnalysisEnabled) {
-                                emit(AnalysisProgress.StageStarted("code_analysis", "Analyzing code patterns"))
-                                val codeStart = System.currentTimeMillis()
-                                dexInfos.forEach { dexInfo ->
-                                    val reflectionFindings = reflectionDetector.detectPatterns(dexInfo)
-                                    reflectionFindings.forEach { refFinding ->
-                                        findings.add(
-                                            Finding(
-                                                id = UUID.randomUUID().toString(),
-                                                ruleId = "REFLECTION_${refFinding.patternType}",
-                                                title = refFinding.description,
-                                                category = "code_pattern",
-                                                severity = refFinding.severity,
-                                                confidence = Confidence.HIGH,
-                                                simpleExplanation = refFinding.evidence,
-                                                analystExplanation = "Detected ${refFinding.patternType} pattern in ${refFinding.className}.${refFinding.methodName}",
-                                                evidence = listOf(
-                                                    Evidence(
-                                                        type = EvidenceType.DEX_CALL_SITE,
-                                                        fileId = null,
-                                                        dexName = dexInfo.name,
-                                                        className = refFinding.className,
-                                                        method = refFinding.methodName,
-                                                        offset = null,
-                                                        excerpt = refFinding.evidence,
-                                                        excerptEncoding = "text"
-                                                    )
-                                                ),
-                                                limitations = listOf("Static analysis cannot determine if this code path is executed"),
-                                                recommendations = listOf("Review if this pattern is necessary for app functionality"),
-                                                mappings = emptyList(),
-                                                references = emptyList()
-                                            )
-                                        )
-                                    }
-                                }
-                                stageResults.add(StageResult(
-                                    stageId = "code_analysis",
-                                    state = StageState.COMPLETE,
-                                    startedAt = codeStart.toString(),
-                                    completedAt = System.currentTimeMillis().toString(),
-                                    progressCurrent = findings.size,
-                                    progressTotal = null,
-                                    warningCount = 0,
-                                    errorCode = null
+                                errors.add(ModelAnalysisError(
+                                    code = "APK_ENTRY_EXTRACTION_FAILED",
+                                    message = "Archive contains APK entries but no analyzable APK could be extracted",
+                                    stage = "apk"
                                 ))
-                                emit(AnalysisProgress.StageComplete("code_analysis"))
-                            } else {
-                                stageResults.add(StageResult(
-                                    stageId = "code_analysis",
-                                    state = StageState.SKIPPED,
-                                    startedAt = null,
-                                    completedAt = null,
-                                    progressCurrent = null,
-                                    progressTotal = null,
-                                    warningCount = 0,
-                                    errorCode = null
-                                ))
-                                limitations.add("Deep DEX analysis disabled by configuration")
+                                emit(AnalysisProgress.StageFailed("apk", "No analyzable APK entry could be extracted"))
+                                limitations.add("Archive contained APK entries that could not be extracted for analysis")
                             }
+                        } else if (isApkContainer(inputFile)) {
+                            apkInfo = analyzeApkFile(inputFile, dexInfos, findings, errors, limitations, stageResults)
                         } else {
-                            val errorMsg = apkResult.exceptionOrNull()?.message ?: "Unknown error"
-                            stageResults.add(StageResult(
-                                stageId = "apk",
-                                state = StageState.FAILED,
-                                startedAt = apkStart.toString(),
-                                completedAt = System.currentTimeMillis().toString(),
-                                progressCurrent = 0,
-                                progressTotal = 100,
-                                warningCount = 0,
-                                errorCode = "APK_PARSE_ERROR"
-                            ))
-                            errors.add(ModelAnalysisError(
-                                code = "APK_PARSE_ERROR",
-                                message = errorMsg,
-                                stage = "apk"
-                            ))
-                            emit(AnalysisProgress.StageFailed("apk", errorMsg))
+                            limitations.add("Archive contains no analyzable APK content; all entries were inventoried only")
                         }
                     }
                 } else {
@@ -618,6 +468,277 @@ class AnalysisPipeline(
         } catch (e: Exception) {
             Timber.e(e, "Analysis failed")
             emit(AnalysisProgress.Error(e.message ?: "Analysis failed"))
+        }
+    }
+    
+    /**
+     * Runs the single-APK analysis stages (structure, metadata, signing, DEX,
+     * code patterns) against an APK file and returns the parsed [ApkInfo].
+     * Used for raw APKs and for APK entries extracted from case archives.
+     */
+    private suspend fun FlowCollector<AnalysisProgress>.analyzeApkFile(
+        apkFile: File,
+        dexInfos: MutableList<DexInfo>,
+        findings: MutableList<Finding>,
+        errors: MutableList<ModelAnalysisError>,
+        limitations: MutableList<String>,
+        stageResults: MutableList<StageResult>
+    ): ApkInfo? {
+        var apkInfo: ApkInfo? = null
+        
+        emit(AnalysisProgress.StageStarted("apk_structure", "Validating APK structure"))
+        val structureStart = System.currentTimeMillis()
+        val structureResult = apkStructureValidator.validate(apkFile)
+        if (structureResult.isValid) {
+            stageResults.add(StageResult(
+                stageId = "apk_structure",
+                state = StageState.COMPLETE,
+                startedAt = structureStart.toString(),
+                completedAt = System.currentTimeMillis().toString(),
+                progressCurrent = 100,
+                progressTotal = 100,
+                warningCount = structureResult.warnings.size,
+                errorCode = null
+            ))
+            emit(AnalysisProgress.StageComplete("apk_structure"))
+        } else {
+            stageResults.add(StageResult(
+                stageId = "apk_structure",
+                state = StageState.FAILED,
+                startedAt = structureStart.toString(),
+                completedAt = System.currentTimeMillis().toString(),
+                progressCurrent = 0,
+                progressTotal = 100,
+                warningCount = 0,
+                errorCode = "APK_STRUCTURE_INVALID"
+            ))
+            errors.add(ModelAnalysisError(
+                code = "APK_STRUCTURE_INVALID",
+                message = structureResult.errors.joinToString("; "),
+                stage = "apk_structure"
+            ))
+            emit(AnalysisProgress.StageFailed("apk_structure", structureResult.errors.joinToString("; ")))
+        }
+        
+        emit(AnalysisProgress.StageStarted("apk", "Analyzing APK"))
+        val apkStart = System.currentTimeMillis()
+        val apkResult = apkAnalyzer.analyzeApk(apkFile)
+        if (apkResult.isSuccess) {
+            val apkAnalysisResult = apkResult.getOrNull()
+            apkInfo = apkAnalysisResult?.apkInfo
+            stageResults.add(StageResult(
+                stageId = "apk",
+                state = StageState.COMPLETE,
+                startedAt = apkStart.toString(),
+                completedAt = System.currentTimeMillis().toString(),
+                progressCurrent = 100,
+                progressTotal = 100,
+                warningCount = 0,
+                errorCode = null
+            ))
+            emit(AnalysisProgress.StageComplete("apk"))
+            
+            emit(AnalysisProgress.StageStarted("signing", "Verifying signatures"))
+            val signingStart = System.currentTimeMillis()
+            val signingResult = apksigVerifier.verify(apkFile)
+            if (signingResult.verified && signingResult.signingInfo != null) {
+                apkInfo = apkInfo?.copy(signingInfo = signingResult.signingInfo)
+                stageResults.add(StageResult(
+                    stageId = "signing",
+                    state = StageState.COMPLETE,
+                    startedAt = signingStart.toString(),
+                    completedAt = System.currentTimeMillis().toString(),
+                    progressCurrent = 100,
+                    progressTotal = 100,
+                    warningCount = signingResult.warnings.size,
+                    errorCode = null
+                ))
+            } else {
+                stageResults.add(StageResult(
+                    stageId = "signing",
+                    state = StageState.FAILED,
+                    startedAt = signingStart.toString(),
+                    completedAt = System.currentTimeMillis().toString(),
+                    progressCurrent = 0,
+                    progressTotal = 100,
+                    warningCount = 0,
+                    errorCode = "SIGNING_VERIFICATION_FAILED"
+                ))
+                if (signingResult.errors.isNotEmpty()) {
+                    errors.add(ModelAnalysisError(
+                        code = "SIGNING_VERIFICATION_FAILED",
+                        message = signingResult.errors.joinToString("; "),
+                        stage = "signing"
+                    ))
+                }
+            }
+            emit(AnalysisProgress.StageComplete("signing"))
+            
+            emit(AnalysisProgress.StageStarted("dex", "Analyzing DEX files"))
+            val dexStart = System.currentTimeMillis()
+            val dexFiles = extractDexFiles(apkFile)
+            var dexWarnings = 0
+            dexFiles.forEach { dexFile ->
+                val dexResult = dexAnalyzer.analyzeDex(dexFile)
+                if (dexResult.isSuccess) {
+                    dexResult.getOrNull()?.let { dexInfos.add(it) }
+                } else {
+                    dexWarnings++
+                    errors.add(ModelAnalysisError(
+                        code = "DEX_PARSE_ERROR",
+                        message = dexResult.exceptionOrNull()?.message ?: "Unknown DEX parse error",
+                        stage = "dex"
+                    ))
+                }
+                dexFile.delete()
+            }
+            stageResults.add(StageResult(
+                stageId = "dex",
+                state = StageState.COMPLETE,
+                startedAt = dexStart.toString(),
+                completedAt = System.currentTimeMillis().toString(),
+                progressCurrent = dexInfos.size,
+                progressTotal = dexFiles.size,
+                warningCount = dexWarnings,
+                errorCode = null
+            ))
+            emit(AnalysisProgress.StageComplete("dex"))
+            
+            if (config.deepDexAnalysisEnabled) {
+                emit(AnalysisProgress.StageStarted("code_analysis", "Analyzing code patterns"))
+                val codeStart = System.currentTimeMillis()
+                dexInfos.forEach { dexInfo ->
+                    val reflectionFindings = reflectionDetector.detectPatterns(dexInfo)
+                    reflectionFindings.forEach { refFinding ->
+                        findings.add(
+                            Finding(
+                                id = UUID.randomUUID().toString(),
+                                ruleId = "REFLECTION_${refFinding.patternType}",
+                                title = refFinding.description,
+                                category = "code_pattern",
+                                severity = refFinding.severity,
+                                confidence = Confidence.HIGH,
+                                simpleExplanation = refFinding.evidence,
+                                analystExplanation = "Detected ${refFinding.patternType} pattern in ${refFinding.className}.${refFinding.methodName}",
+                                evidence = listOf(
+                                    Evidence(
+                                        type = EvidenceType.DEX_CALL_SITE,
+                                        fileId = null,
+                                        dexName = dexInfo.name,
+                                        className = refFinding.className,
+                                        method = refFinding.methodName,
+                                        offset = null,
+                                        excerpt = refFinding.evidence,
+                                        excerptEncoding = "text"
+                                    )
+                                ),
+                                limitations = listOf("Static analysis cannot determine if this code path is executed"),
+                                recommendations = listOf("Review if this pattern is necessary for app functionality"),
+                                mappings = emptyList(),
+                                references = emptyList()
+                            )
+                        )
+                    }
+                }
+                stageResults.add(StageResult(
+                    stageId = "code_analysis",
+                    state = StageState.COMPLETE,
+                    startedAt = codeStart.toString(),
+                    completedAt = System.currentTimeMillis().toString(),
+                    progressCurrent = findings.size,
+                    progressTotal = null,
+                    warningCount = 0,
+                    errorCode = null
+                ))
+                emit(AnalysisProgress.StageComplete("code_analysis"))
+            } else {
+                stageResults.add(StageResult(
+                    stageId = "code_analysis",
+                    state = StageState.SKIPPED,
+                    startedAt = null,
+                    completedAt = null,
+                    progressCurrent = null,
+                    progressTotal = null,
+                    warningCount = 0,
+                    errorCode = null
+                ))
+                limitations.add("Deep DEX analysis disabled by configuration")
+            }
+        } else {
+            val errorMsg = apkResult.exceptionOrNull()?.message ?: "Unknown error"
+            stageResults.add(StageResult(
+                stageId = "apk",
+                state = StageState.FAILED,
+                startedAt = apkStart.toString(),
+                completedAt = System.currentTimeMillis().toString(),
+                progressCurrent = 0,
+                progressTotal = 100,
+                warningCount = 0,
+                errorCode = "APK_PARSE_ERROR"
+            ))
+            errors.add(ModelAnalysisError(
+                code = "APK_PARSE_ERROR",
+                message = errorMsg,
+                stage = "apk"
+            ))
+            emit(AnalysisProgress.StageFailed("apk", errorMsg))
+        }
+        
+        return apkInfo
+    }
+    
+    /**
+     * Returns true when a ZIP archive structurally looks like an APK
+     * (contains a top-level AndroidManifest.xml or classes*.dex) rather than
+     * being a generic container. Magic bytes alone cannot distinguish APK from
+     * ZIP, so structural markers are required.
+     */
+    private fun isApkContainer(file: File): Boolean {
+        return try {
+            ZipFile(file).use { zip ->
+                zip.getEntry("AndroidManifest.xml") != null ||
+                    zip.entries().asSequence().any { it.name.matches(Regex("^classes\\d*\\.dex$")) }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to inspect archive for APK markers")
+            false
+        }
+    }
+    
+    /**
+     * Extracts the primary (preferably base) APK entry from a case archive to a
+     * bounded temp file. Returns null when no usable APK entry exists.
+     */
+    private fun extractPrimaryApk(containerFile: File): File? {
+        return try {
+            ZipFile(containerFile).use { zip ->
+                val apkEntries = zip.entries().asSequence()
+                    .filter { it.name.endsWith(".apk", ignoreCase = true) }
+                    .sortedBy { if (it.name.contains("base", ignoreCase = true)) 0 else 1 }
+                    .toList()
+                if (apkEntries.isEmpty()) return null
+                val entry = apkEntries.first()
+                val tempFile = File.createTempFile("case_apk_", ".apk")
+                try {
+                    zip.getInputStream(entry).use { input ->
+                        tempFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    if (tempFile.length() > AnalysisLimits.MAX_INPUT_SIZE_BYTES) {
+                        tempFile.delete()
+                        return null
+                    }
+                    tempFile
+                } catch (e: Exception) {
+                    tempFile.delete()
+                    Timber.w(e, "Failed to extract APK entry ${entry.name}")
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to extract APK from archive")
+            null
         }
     }
     

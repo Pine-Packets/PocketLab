@@ -24,12 +24,14 @@ import androidx.compose.ui.unit.dp
 fun HomeScreen(
     onNavigateToCases: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onAnalyzeFile: (Uri) -> Unit
+    onAnalyzeFile: (List<Uri>) -> Unit
 ) {
     val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let { onAnalyzeFile(it) }
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            onAnalyzeFile(uris)
+        }
     }
     
     Column(

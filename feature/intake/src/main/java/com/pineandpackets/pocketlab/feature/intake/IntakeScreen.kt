@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun IntakeScreen(
-    uriString: String,
+    uris: List<String>,
     onAnalysisStarted: (String) -> Unit,
     onNavigateBack: () -> Unit
 ) {
@@ -49,14 +49,16 @@ fun IntakeScreen(
                 modifier = Modifier.padding(16.dp)
             ) {
                 Text(
-                    text = "File selected for analysis",
+                    text = if (uris.size == 1) "File selected for analysis" else "${uris.size} files selected for analysis",
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "URI: $uriString",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                uris.forEachIndexed { index, uriString ->
+                    Text(
+                        text = "${index + 1}. $uriString",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
         }
         

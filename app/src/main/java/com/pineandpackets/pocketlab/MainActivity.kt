@@ -11,10 +11,25 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        val importUris: List<String> = runCatching {
+            val uris = intent?.getStringArrayListExtra(EXTRA_IMPORT_URIS)
+            val single = intent?.getStringExtra(EXTRA_IMPORT_URI)
+            when {
+                !uris.isNullOrEmpty() -> uris
+                !single.isNullOrEmpty() -> listOf(single)
+                else -> emptyList()
+            }
+        }.getOrDefault(emptyList())
+
         setContent {
             PocketLabTheme {
-                PocketLabApp()
+                PocketLabApp(initialUris = importUris)
             }
         }
+    }
+
+    companion object {
+        const val EXTRA_IMPORT_URIS = "import_uris"
+        const val EXTRA_IMPORT_URI = "import_uri"
     }
 }

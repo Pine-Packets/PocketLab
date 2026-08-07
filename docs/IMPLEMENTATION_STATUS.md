@@ -1,12 +1,12 @@
 # PocketLab Implementation Status
 
-**Last Updated:** 2026-08-06 (session continued - package set pipeline integration and archive correlation complete)  
+**Last Updated:** 2026-08-06 (session continued - raw-APK/case-archive pipeline fix and multi-file split APK intake)  
 **Project:** PocketLab - Android Static Malware Analysis App  
 **Organization:** Pine and Packets LLC
 
 ## Current Phase: Phase 10 (Password-Protected Archives and Package Sets) - IN PROGRESS
 
-**Actual Progress:** The codebase is at Phase 10 of 13. Recent work completed wiring the PackageSetAnalyzer into the AnalysisPipeline end-to-end, enriched the archive report section with correlation metrics (max ratio, nested depth, unsupported entries, detected child types), and added archive and pipeline tests.
+**Actual Progress:** The codebase is at Phase 10 of 13. Recent work (1) fixed the pipeline gap where raw APKs and case archives containing APKs were only treated as generic ZIP containers, so APK analysis stages (`apk_structure`, `apk`, `signing`, `dex`, `code_analysis`) never ran for them; (2) added `SplitApkSetBuilder` to bundle multiple staged APKs into a synthetic APKS container; (3) wired multi-file intake (`ACTION_SEND_MULTIPLE`) through the manifest, share activity, navigation, and file picker.
 
 ## Overall Progress
 
@@ -170,7 +170,13 @@
 - ✅ DEX analysis for APKs contained in package sets
 - ✅ Signing verification for base APK in package sets
 - ✅ Archive correlation report: max ratio, nested depth, unsupported entries, detected child types
-- ❌ Multi-file split APK intake (user selects multiple files)
+- ✅ Pipeline handles raw APK files (detected as ZIP by magic) by running APK analysis stages on the container itself
+- ✅ Pipeline extracts and analyzes APK entries inside case archives (ZIP containing .apk)
+- ✅ Plain archives without APK content skip APK stages with a clear limitation
+- ✅ SplitApkSetBuilder creates a synthetic APKS container from multiple staged APK files (base.apk + split_N.apk, STORED entries, BundleConfig.pb marker)
+- ✅ ACTION_SEND_MULTIPLE share target: manifest intent filters, URI list validation (scheme, MIME, item-count cap), confirmation screen, multi-URI navigation
+- ✅ Multi-file document picker (OpenMultipleDocuments) with list-based navigation route
+- ⚠️ Multi-file staging + APKS bundling into a case workspace not yet wired (next)
 - ❌ Case ZIP support with notes/text inventory
 
 ### Phase 11-12: ❌ NOT STARTED
@@ -209,13 +215,15 @@
 - ✅ GoldenReportTest (report snapshot regression)
 - ✅ AnalysisConfigTest (config creation, device profile adaptation)
 - ✅ AnalysisPipelineIntegrationTest (end-to-end pipeline with config, archive section, stage results, package set analysis)
+- ✅ SplitApkSetBuilderTest (synthetic APKS construction, base/split naming, STORED preservation, size/count bounds, cleanup on failure)
+- ✅ Pipeline regression tests: raw APK runs APK stages, case archive with contained APK extracts and analyzes, plain archive skips APK stages, split APK set produces package set report
 - ✅ CaseCleanupWorkerTest (retention-based cleanup, scratch data cleanup)
 - ✅ NestedArchiveTest (nested depth reporting, max compression ratio, unsupported entries)
 
 ### Test Results
-- **Total Tests:** ~216 test cases
+- **Total Tests:** ~219 test cases
 - **Status:** All passing
-- **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation
+- **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation, split APK set construction, raw-APK and case-archive pipeline dispatch
 - **Missing:** Archive UI tests, signed APK fixtures for apksig
 
 ## Build Status
@@ -237,7 +245,7 @@
 3. **Test Fixtures**: Placeholder binary XML data in tests
 
 ### Future Work
-- Multi-file split APK intake
+- Multi-file staging + APKS bundling into case workspace
 - Case ZIP support with notes/text inventory
 - Add comprehensive fuzzing tests
 - Native ELF analysis expansion
@@ -274,6 +282,9 @@
 25. **APKS/XAPK Package Set Analysis**: Detection and analysis of multi-APK package formats with result merging and consistency checking
 26. **Package Set Pipeline Integration**: End-to-end APKS/XAPK analysis including contained DEX and base-APK signature verification
 27. **Archive Correlation Metrics**: Report records max compression ratio, nested depth, unsupported entries, and detected child types
+28. **Raw-APK and Case-Archive Dispatch**: Pipeline runs full APK analysis stages on raw APKs and on APK entries extracted from case archives, with provenance limitations
+29. **Split APK Set Bundling**: SplitApkSetBuilder combines staged APKs into a bounded synthetic APKS container
+30. **Multi-File Share Intake**: ACTION_SEND_MULTIPLE validated and confirmed before any staging; never auto-analyzes
 
 ## Repository
 
@@ -284,9 +295,10 @@
 ## Next Steps
 
 ### Immediate (Critical)
-1. Complete Phase 10 (multi-file split APK intake, case ZIP support)
-2. Add comprehensive fuzzing tests
-3. Native ELF analysis expansion
+1. Wire multi-file staging + APKS bundling into the case workspace
+2. Complete case ZIP support with notes/text inventory
+3. Add comprehensive fuzzing tests
+4. Native ELF analysis expansion
 
 ### Short-term
 1. Play Store release preparation
@@ -298,18 +310,18 @@
 ## Conclusion
 
 PocketLab has made significant progress. The recent session added:
-- PackageSetAnalyzer wired into the AnalysisPipeline end-to-end (packageset stage)
-- DEX analysis and signing verification for APKs contained in APKS/XAPK package sets
-- Archive correlation report enrichment: max observed ratio, nested depth, unsupported entries, detected child types, nested archive status
-- 3 new pipeline integration tests for APKS/XAPK detection
-- 4 new archive correlation tests (nested depth, max ratio, unsupported method entries)
+- Fixed a critical pipeline gap: raw APK files (which are also ZIPs) and case archives containing APKs now run the full APK analysis stages (`apk_structure`, `apk`, `signing`, `dex`, `code_analysis`) instead of being treated as generic archives only
+- SplitApkSetBuilder to construct a synthetic APKS package set from multiple staged APKs, with strict size/count bounds and cleanup on failure
+- Multi-file intake wiring: `ACTION_SEND_MULTIPLE` manifest filters, multi-URI share validation and confirmation, multi-file document picker, and a URI-list navigation route
+- 3 new pipeline regression/feature tests and 7 new SplitApkSetBuilder tests
 
-Total tests: ~216, all passing.
+Total tests: ~219, all passing.
 
 The critical path forward is:
-1. Complete Phase 10 (multi-file split APK intake, case ZIP support)
-2. Add comprehensive fuzzing tests
-3. Native ELF analysis expansion
-4. Prepare for Play Store release
+1. Wire multi-file staging + APKS bundling into the case workspace
+2. Add case ZIP support with notes/text inventory
+3. Add comprehensive fuzzing tests
+4. Native ELF analysis expansion
+5. Prepare for Play Store release
 
 Estimated time to MVP: 2-3 weeks of full-time development.

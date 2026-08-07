@@ -1,9 +1,5 @@
 package com.pineandpackets.pocketlab.ui
 
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
@@ -13,6 +9,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -23,24 +20,20 @@ import com.pineandpackets.pocketlab.ui.navigation.PocketLabNavHost
 import com.pineandpackets.pocketlab.ui.navigation.Screen
 import com.pineandpackets.pocketlab.ui.theme.PocketLabTheme
 
-class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
-        super.onCreate(savedInstanceState)
-        setContent {
-            PocketLabTheme {
-                PocketLabApp()
-            }
-        }
-    }
-}
-
 @Composable
-fun PocketLabApp() {
+fun PocketLabApp(initialUris: List<String> = emptyList()) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-    
+
+    LaunchedEffect(initialUris) {
+        if (initialUris.isNotEmpty()) {
+            navController.navigate(Screen.Intake.createRoute(initialUris)) {
+                popUpTo(Screen.Home.route)
+            }
+        }
+    }
+
     val showBottomBar = currentDestination?.route in Screen.bottomNavItems.map { it.route }
     
     Scaffold(

@@ -197,11 +197,12 @@
 
 A deterministic, seed-fixed `FuzzHarness` (in `core:testing`) now exercises the hostile
 parser boundary across the file-type detector, binary XML parser, resources.arsc parser,
-DEX parser, ELF parser, and the report renderers. It runs each probe with a termination
-budget on a dedicated worker, classifies fatal `Error`s (`OOM`, `StackOverflowError`,
-`NegativeArraySizeException`, `AssertionError`), and re-runs pure probes to check
-determinism. The parser changes below were made after the harness surfaced allocation
-risks in the hostile count/length fields of the binary XML and resource-table parsers.
+DEX parser, ELF parser, the archive preflight/enumeration path, and the report renderers.
+It runs each probe with a termination budget on a dedicated worker, classifies fatal
+`Error`s (`OOM`, `StackOverflowError`, `NegativeArraySizeException`, `AssertionError`),
+and re-runs pure probes to check determinism. The parser changes below were made after
+the harness surfaced allocation risks in the hostile count/length fields of the binary
+XML and resource-table parsers.
 
 ## Test Coverage
 
@@ -243,9 +244,10 @@ risks in the hostile count/length fields of the binary XML and resource-table pa
 - ✅ DexAnalyzerFuzzTest (random DEX with temp-file staging, excessive-count quota)
 - ✅ ElfAnalyzerFuzzTest (random ELF64, hostile section count quota)
 - ✅ ReportRendererFuzzTest (JSON/Markdown/HTML/CSV hostile string rendering, determinism)
+- ✅ ArchiveAnalyzerFuzzTest (random ZIP bytes plus byte-flip/truncation mutants of a valid ZIP through ZipValidator preflight and enumeration)
 
 ### Test Results
-- **Total Tests:** 277 test cases
+- **Total Tests:** 278 test cases
 - **Status:** All passing
 - **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation, split APK set construction, raw-APK and case-archive pipeline dispatch, multi-file intake staging orchestration, case ZIP notes/text inventory, analysis view-model state orchestration, property-based archive path safety, property-based IOC extraction invariants, native ELF symbol/dependency/JNI/segment analysis, comprehensive deterministic fuzzing of file-type, binary XML, resource table, DEX, ELF, and report renderer boundaries
 - **Missing:** Archive UI tests, signed APK fixtures for apksig
@@ -320,13 +322,13 @@ risks in the hostile count/length fields of the binary XML and resource-table pa
 
 - **GitHub:** https://github.com/Pine-Packets/PocketLab
 - **Branch:** main
-- **Total Commits:** 15
+- **Total Commits:** 16
 
 ## Next Steps
 
 ### Immediate (Next)
-1. Extend fuzzing to the archive/ZIP metadata path and the interactive rule interpreter corpus
-2. Expand the physical-device and instrumentation surface (process isolation, Adaptive layout, accessibility)
+1. Expand the physical test corpus and instrumentation coverage (process isolation, cancellation, export surface)
+2. Play Store release preparation
 
 ### Short-term
 1. Play Store release preparation
@@ -344,7 +346,11 @@ PocketLab has made significant progress. The most recent session added:
   and a pure-probe determinism re-run. It is deliberately seed-fixed so any failure is
   reproducible, matching the "safe parser failure" definition.
 - Fuzz suites for the file-type detector, binary XML parser, resources.arsc parser,
-  DEX parser, ELF parser, and the JSON/Markdown/HTML/CSV report renderers (12 new tests).
+  DEX parser, ELF parser, archive preflight/enumeration, and the JSON/Markdown/HTML/CSV
+  report renderers (13 new tests).
+- A deterministic fuzz corpus for the archive path combining pure-random bytes with
+  byte-flip and truncation mutants of a structurally valid ZIP, driving ZipValidator
+  preflight and ArchiveAnalyzer enumeration.
 - Bounded allocation in `BinaryXmlParser` and `ResourceTableParser`: previously the
   string-pool count and per-string length fields were used to size `IntArray`/`CharArray`/`ByteArray`
   allocations directly, permitting hostile headers to trigger `OutOfMemoryError` or
@@ -353,7 +359,7 @@ PocketLab has made significant progress. The most recent session added:
   fields before validation".
 - All engine modules that exercise hostile parsers now depend on `:core:testing` for tests.
 
-Total tests: 277, all passing (plus fuzz-driven allocation hardening).
+Total tests: 278, all passing (plus fuzz-driven allocation hardening).
 
 The critical path forward is:
 1. Extend fuzzing to the archive metadata path and grow the physical/instrumentation test base

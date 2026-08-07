@@ -165,7 +165,7 @@ families (PE, OLE) last. Every stage is gated on the framework being complete.
 | Stage | Family | Status | Notes |
 |---:|---|---|---|
 | Frame | Generic framework | ✅ implemented | Phase 14; ADR-0004 |
-| 1 | PDF | ✅ implemented | `:engine:pdf` (`PdfScanner`/`PdfAnalyzer`, id `pdf.analyzer` v1.0.0); bounded 16 MiB read-only scan; JS/OpenAction/Launch/XFA/embedded/remote/encryption/signature detection; defanged URL indicators; findings PDF-*-001; fuzz target not yet added |
+| 1 | PDF | ✅ implemented | `:engine:pdf` (`PdfScanner`/`PdfAnalyzer`, id `pdf.analyzer` v1.0.0); bounded 16 MiB read-only scan; JS/OpenAction/Launch/XFA/embedded/remote/encryption/signature detection; defanged URL indicators; findings PDF-*-001; fuzz tests (`PdfAnalyzerFuzzTest`) |
 
 ---
 

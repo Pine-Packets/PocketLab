@@ -3807,11 +3807,21 @@ signal. Current scan collects package parts and relationships but skips full par
 bytecode, embedded connection XML bodies), crafted macro/Office formula internals, and hidden sheet/slide
 enumeration (future scope).
 
-### Phase 15.3 — Legacy OLE/CFB (Stage 3)
+### Phase 15.3 — Legacy OLE/CFB (Stage 3) ✅ IMPLEMENTED (`:engine:ole`)
 `.doc/.dot/.xls/.xlt/.xla/.ppt/.pps/.pot/.ppa/.rtf` — bounded compound-file parser: directory, streams,
 VBA, XLM, embedded objects, ActiveX, external links, DDE where supportable, metadata, suspicious streams,
 high-entropy data, embedded files, indicators. Treat as hostile binary attack surface. Extensive malformed
 CFB fixtures + fuzz/property tests.
+
+Status note: `:engine:ole` `OleScanner`/`OleAnalyzer` (analyzer id `ole.analyzer` v1.0.0) validates the
+CFB header/geometry (magic, byte order, version 3/4, sector shift), builds the FAT from the inline DIFAT
+and DIFAT-sector chain, walks the bounded directory with chain-loop/out-of-range guards, emits a flat
+stream inventory, detects VBA macro streams, embedded-OLE objects and suspicious names, and extracts
+defanged URL/domain/IP/email indicators from a bounded set of small regular streams. It never executes,
+extracts, or opens embedded objects and marks truncated/malformed containers incomplete (never
+false-clean). Registered in `AnalyzerOrchestrator.analyzerRegistry()`. Mini-stream and deep property-set
+(such as SummaryInformation) decoding and DDE/XLM structure analysis are future scope; fuzz tests cover
+hostile CFB byte sequences.
 
 ### Phase 15.4 — Images and QR/barcode (Stage 4)
 JPEG/PNG/GIF/WebP/HEIF/HEIC/AVIF/BMP/TIFF/SVG/SVGZ/ICO — dimensions, format, animation, EXIF, XMP, GPS,

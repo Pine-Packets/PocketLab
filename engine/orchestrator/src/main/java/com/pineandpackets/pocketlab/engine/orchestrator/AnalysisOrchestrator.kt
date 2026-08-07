@@ -12,6 +12,7 @@ import com.pineandpackets.pocketlab.engine.api.CaseBudget
 import com.pineandpackets.pocketlab.engine.api.ArtifactAnalyzer
 import com.pineandpackets.pocketlab.engine.pdf.PdfAnalyzer
 import com.pineandpackets.pocketlab.engine.ooxml.OoxmlAnalyzer
+import com.pineandpackets.pocketlab.engine.ole.OleAnalyzer
 import com.pineandpackets.pocketlab.engine.pipeline.AnalysisConfig
 import com.pineandpackets.pocketlab.engine.pipeline.AnalysisPipeline
 import com.pineandpackets.pocketlab.engine.pipeline.HashResult
@@ -151,6 +152,7 @@ class AnalysisOrchestrator(
     private fun analyzerRegistry(): List<ArtifactAnalyzer> = listOf(
         PdfAnalyzer(),
         OoxmlAnalyzer(),
+        OleAnalyzer(),
     )
 
     private fun calculateHash(file: File, algorithm: String): String {

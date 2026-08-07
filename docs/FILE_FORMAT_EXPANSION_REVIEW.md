@@ -124,7 +124,7 @@ false-clean. Magic detection alone is **not** support.
 | ELF/SO | ✅ magic | ❌ (pipeline) | (ELF parser exists in engine:native but not dispatched) |
 | GZIP / 7z / RAR / ZIPX | ✅ magic | ❌ | Detected, not analyzed by pipeline |
 | PDF | ✅ magic | ❌ | **Stage 1 target** |
-| OLE (doc/xls/ppt) | ✅ magic | ❌ | **Stage 3 target** |
+| OLE (doc/xls/ppt) | ✅ magic | ✅ | `:engine:ole` `OleScanner`/`OleAnalyzer` (id `ole.analyzer` v1.0.0); CFB header/dir inventory, VBA macro + embedded-OLE + suspicious-stream detection, bounded stream indicator extraction; never executes/opens embedded objects; truncated/malformed => incomplete |
 | PE (exe/dll) | ✅ magic | ❌ | **Stage 11 target** |
 | TEXT / SCRIPT | ⚠️ ext | ❌ | **Stage 7/10 target** |
 

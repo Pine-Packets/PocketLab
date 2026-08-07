@@ -246,7 +246,7 @@ XML and resource-table parsers.
 - ✅ ArchiveAnalyzerFuzzTest (random ZIP bytes plus byte-flip/truncation mutants of a valid ZIP through ZipValidator preflight and enumeration)
 
 ### Test Results
-- **Total Tests:** 312 test cases
+- **Total Tests:** 525 test cases
 - **Status:** All passing
 - **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation, split APK set construction, raw-APK and case-archive pipeline dispatch, multi-file intake staging orchestration, case ZIP notes/text inventory, analysis view-model state orchestration, property-based archive path safety, property-based IOC extraction invariants, native ELF symbol/dependency/JNI/segment analysis, comprehensive deterministic fuzzing of file-type, binary XML, resource table, DEX, ELF, and report renderer boundaries
 - **Missing:** Archive UI tests, signed APK fixtures for apksig
@@ -435,5 +435,18 @@ the expansion task requires maintaining it; `AGENTS.md` was also re-pointed at i
 - ✅ 8 analyzer tests + 2 fuzz tests (`OoxmlAnalyzerTest`, `OoxmlAnalyzerFuzzTest`, `OoxmlTestFixture`/`ByteArtifactRef`) covering plain-doc no-false-findings, VBA, external links + URL defanging, embedded OLE, custom XML + signatures, plain ZIP (no OOXML flag), malformed/non-ZIP, type mismatch, and randomized hostile corpora
 - ✅ `:engine:ooxml:testDebugUnitTest` green (312 total); `:engine:ooxml` + `:engine:orchestrator` lint-clean; full regression suite passing (312 tests)
 - ⏭ Next: Stage 15.3 Legacy OLE/CFB. Each stage adds one `ArtifactAnalyzer` to `analyzerRegistry()`.
+### Phase 15.3 (Format Expansion Stages) — Stage 15.3 Legacy OLE/CFB ✅ IMPLEMENTED
+- ✅ New module `:engine:ole` (`settings.gradle.kts`, `engine/ole/build.gradle.kts`) — library module, pure engine code, deps: `core:common`, `core:model`, `engine:api`, `engine:ioc`, coroutines, timber
+- ✅ `OleScanReport` — bounded scan result model (CFB major/minor version, sector size, sector/stream/storage counts, macro/embedded/suspicious stream lists, indicators, abnormalities, parser errors, scan-truncation flag)
+- ✅ `OleScanner` — bounded, read-only CFB binary parser: validates magic, byte order, version 3/4, sector shift/geometry; reads a bounded window via `ArtifactRef.readRange`; builds the FAT from the inline DIFAT and DIFAT-sector chain (capped entries/sectors); enumerates directory sectors/entries with chain-loop and out-of-range guards; emits a flat stream inventory; detects VBA macro streams, embedded-OLE streams, and suspicious names; reads a bounded set of small regular streams to extract defanged URL/domain/IP/email indicators via `IocExtractor`; never executes/extracts/opens embedded objects; marks truncated/malformed containers incomplete (never false-clean); honors cancellation on every loop
+- ✅ `OleAnalyzer` — `ArtifactAnalyzer` (id `ole.analyzer`, v `1.0.0`, supports `OLE`); findings `OLE-MACRO-001`, `OLE-EMBEDDED-001`, `OLE-REMOTE-001`; facts + metadata; defensive type-mismatch guard; limitations document the mini-stream / property-set scope boundary
+- ✅ `AnalysisOrchestrator` — `analyzerRegistry()` now registers `OleAnalyzer()` alongside `PdfAnalyzer()` and `OoxmlAnalyzer()`; dependency added
+- ✅ 7+2 tests (`OleAnalyzerTest`, `OleAnalyzerFuzzTest`, `OleTestFixture`/`OleArtifactRef`, minimal structurally valid CFB builder with chained directory sectors) covering plain-doc no-false-findings, VBA macro, embedded-OLE, URL indicators + defanging, non-CFB, truncated header, type mismatch, and randomized hostile corpora
+- ✅ `:engine:ole:testDebugUnitTest` green; `:engine:ole` + `:engine:orchestrator` lint-clean; full regression suite passing (525 tests, 0 failures)
+- ⏭ Next: Stage 15.4 Images and QR/barcode. Each stage adds one `ArtifactAnalyzer` to `analyzerRegistry()`.
 
-## Next Steps (updated)
+
+### Immediate (Next)
+1. Stage 15.4 Images and QR/barcode: dedicated modules for JPEG/PNG/GIF/WebP/HEIF/AVIF/BMP/TIFF/SVG etc. + local QR/barcode decode, each bound and never rendering hostile SVG/HTML
+2. Expand physical test corpus and instrumentation coverage (process isolation, cancellation, export surface)
+

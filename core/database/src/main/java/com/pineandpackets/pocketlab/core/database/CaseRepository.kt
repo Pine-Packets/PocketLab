@@ -37,9 +37,24 @@ class CaseRepository(
         sourceSizeReported: Long?,
         retentionMode: RetentionMode = RetentionMode.TEMPORARY
     ): CaseMetadata {
+        return createCaseWithId(
+            caseId = CaseId(UUID.randomUUID().toString()),
+            sourceDisplayName = sourceDisplayName,
+            sourceMimeType = sourceMimeType,
+            sourceSizeReported = sourceSizeReported,
+            retentionMode = retentionMode
+        )
+    }
+
+    suspend fun createCaseWithId(
+        caseId: CaseId,
+        sourceDisplayName: String,
+        sourceMimeType: String?,
+        sourceSizeReported: Long?,
+        retentionMode: RetentionMode = RetentionMode.TEMPORARY
+    ): CaseMetadata {
         val now = System.currentTimeMillis()
-        val caseId = CaseId(UUID.randomUUID().toString())
-        
+
         val case = CaseMetadata(
             id = caseId,
             createdAt = now,
@@ -65,7 +80,7 @@ class CaseRepository(
             reportPresent = false,
             lastErrorCode = null
         )
-        
+
         caseDao.insertCase(case.toEntity())
         Timber.i("Created case ${caseId.value} for $sourceDisplayName")
         return case

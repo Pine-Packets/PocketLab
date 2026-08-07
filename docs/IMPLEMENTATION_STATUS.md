@@ -1,6 +1,6 @@
 # PocketLab Implementation Status
 
-**Last Updated:** 2026-08-06 (session continued - case ZIP notes/text inventory complete)  
+**Last Updated:** 2026-08-06 (session continued - real analysis execution wired to AnalysisScreen)  
 **Project:** PocketLab - Android Static Malware Analysis App  
 **Organization:** Pine and Packets LLC
 
@@ -226,9 +226,9 @@
 - ✅ NestedArchiveTest (nested depth reporting, max compression ratio, unsupported entries)
 
 ### Test Results
-- **Total Tests:** 239 test cases
+- **Total Tests:** 245 test cases
 - **Status:** All passing
-- **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation, split APK set construction, raw-APK and case-archive pipeline dispatch, multi-file intake staging orchestration, case ZIP notes/text inventory
+- **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation, split APK set construction, raw-APK and case-archive pipeline dispatch, multi-file intake staging orchestration, case ZIP notes/text inventory, analysis view-model state orchestration
 - **Missing:** Archive UI tests, signed APK fixtures for apksig
 
 ## Build Status
@@ -250,7 +250,6 @@
 3. **Test Fixtures**: Placeholder binary XML data in tests
 
 ### Future Work
-- Wire AnalysisScreen to run real analysis on staged cases
 - Add comprehensive fuzzing tests
 - Native ELF analysis expansion
 - Play Store release preparation
@@ -291,6 +290,7 @@
 30. **Multi-File Share Intake**: ACTION_SEND_MULTIPLE validated and confirmed before any staging; never auto-analyzes
 31. **Multi-File Staging Coordinator**: Stages selected URIs into the private case workspace; single file becomes the case input, multiple files are bundled into a synthetic APKS before analysis
 32. **Case ZIP Notes/Text Inventory**: Bounded streaming scan of text entries in case archives with indicator extraction and container/entry provenance (WF-004)
+33. **Real Analysis Progress UI**: AnalysisScreen now runs the real analysis pipeline on staged cases through an AnalysisViewModel, streaming stage progress from the AnalysisOrchestrator, persisting the canonical report via EncryptedReportStorage, and updating the case index; includes a cancel path and error surfacing
 
 ## Repository
 
@@ -301,9 +301,8 @@
 ## Next Steps
 
 ### Immediate (Critical)
-1. Wire AnalysisScreen to run real analysis on staged cases
-2. Add comprehensive fuzzing tests
-3. Native ELF analysis expansion
+1. Add comprehensive fuzzing tests
+2. Native ELF analysis expansion
 
 ### Short-term
 1. Play Store release preparation
@@ -320,14 +319,14 @@ PocketLab has made significant progress. The recent session added:
 - Multi-file intake wiring: `ACTION_SEND_MULTIPLE` manifest filters, multi-URI share validation and confirmation, multi-file document picker, and a URI-list navigation route
 - IntakeStagingCoordinator + IntakeViewModel: stage URIs into the private case workspace and bundle multiple APKs into a synthetic APKS before analysis; any failure deletes the whole case workspace
 - CaseZipTextScanner: bounded text/notes inventory of case archives (WF-004) with indicator extraction carrying container/entry provenance
-- 3 pipeline regression/feature tests, 7 SplitApkSetBuilder tests, 6 IntakeStagingCoordinator tests, 5 CaseZipTextScanner tests, and 1 pipeline notes-inventory test
+- AnalysisViewModel + AnalysisScreen: real analysis execution on staged cases via the AnalysisOrchestrator, stage progress streaming into Compose UI, encrypted report persistence, case-index update, cancellation, and error handling; CaseRepository gained a `createCaseWithId` overload so the analysis flow can create the case row for an existing staged workspace
+- 3 pipeline regression/feature tests, 7 SplitApkSetBuilder tests, 6 IntakeStagingCoordinator tests, 5 CaseZipTextScanner tests, 1 pipeline notes-inventory test, and 6 AnalysisViewModel tests
 
-Total tests: 239, all passing.
+Total tests: 245, all passing.
 
 The critical path forward is:
-1. Wire AnalysisScreen to run real analysis on staged cases
-2. Add comprehensive fuzzing tests
-3. Native ELF analysis expansion
-4. Prepare for Play Store release
+1. Add comprehensive fuzzing tests
+2. Native ELF analysis expansion
+3. Prepare for Play Store release
 
 Estimated time to MVP: 2-3 weeks of full-time development.

@@ -13,6 +13,7 @@ dependencies {
     implementation(project(":core:io"))
     implementation(project(":core:database"))
     implementation(project(":engine:api"))
+    implementation(project(":engine:archive"))
     implementation(libs.bundles.compose)
     implementation(libs.bundles.lifecycle)
     implementation(libs.androidx.navigation.compose)

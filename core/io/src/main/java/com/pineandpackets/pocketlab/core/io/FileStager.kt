@@ -34,6 +34,15 @@ class FileStager(
         caseId: String,
         computeSha1: Boolean = true,
         computeMd5: Boolean = true
+    ): Result<StagingResult> {
+        return stageFileTo(uri, workspace.getOriginalFile(caseId), computeSha1, computeMd5)
+    }
+
+    suspend fun stageFileTo(
+        uri: Uri,
+        destFile: File,
+        computeSha1: Boolean = true,
+        computeMd5: Boolean = true
     ): Result<StagingResult> = withContext(Dispatchers.IO) {
         try {
             val storageCheck = checkAvailableStorage()
@@ -45,15 +54,13 @@ class FileStager(
                 )
             }
 
-            val outputFile = workspace.getOriginalFile(caseId)
-            
             val inputStream = contentResolver.openInputStream(uri)
                 ?: return@withContext Result.failure(
                     AnalysisError.IntakeError("Cannot open input stream for URI: $uri")
                 )
             
             inputStream.use { input ->
-                FileOutputStream(outputFile).use { output ->
+                FileOutputStream(destFile).use { output ->
                     val sha256Digest = MessageDigest.getInstance("SHA-256")
                     val sha1Digest = if (computeSha1) MessageDigest.getInstance("SHA-1") else null
                     val md5Digest = if (computeMd5) MessageDigest.getInstance("MD5") else null
@@ -64,7 +71,7 @@ class FileStager(
                     
                     while (input.read(buffer).also { bytesRead = it } != -1) {
                         if (!coroutineContext.isActive) {
-                            outputFile.delete()
+                            destFile.delete()
                             return@withContext Result.failure(
                                 AnalysisError.CancellationError("Staging cancelled")
                             )
@@ -72,7 +79,7 @@ class FileStager(
                         
                         totalBytesRead += bytesRead
                         if (totalBytesRead > AnalysisLimits.MAX_INPUT_SIZE_BYTES) {
-                            outputFile.delete()
+                            destFile.delete()
                             return@withContext Result.failure(
                                 AnalysisError.QuotaExceededError("File exceeds maximum size limit")
                             )
@@ -90,7 +97,7 @@ class FileStager(
                     val sha1 = sha1Digest?.digest()?.toHex()
                     val md5 = md5Digest?.digest()?.toHex()
                     
-                    Timber.i("Staged file for case $caseId: $totalBytesRead bytes, SHA-256: $sha256")
+                    Timber.i("Staged ${destFile.name} (${totalBytesRead} bytes), SHA-256: $sha256")
                     
                     Result.success(
                         StagingResult(
@@ -103,8 +110,8 @@ class FileStager(
                 }
             }
         } catch (e: Exception) {
-            Timber.e(e, "Failed to stage file for case $caseId")
-            workspace.getOriginalFile(caseId).delete()
+            Timber.e(e, "Failed to stage file ${destFile.name}")
+            destFile.delete()
             Result.failure(AnalysisError.IntakeError("Failed to stage file", e))
         }
     }

@@ -1,12 +1,12 @@
 # PocketLab Implementation Status
 
-**Last Updated:** 2026-08-06 (session continued - raw-APK/case-archive pipeline fix and multi-file split APK intake)  
+**Last Updated:** 2026-08-06 (session continued - multi-file split APK intake and staging complete)  
 **Project:** PocketLab - Android Static Malware Analysis App  
 **Organization:** Pine and Packets LLC
 
 ## Current Phase: Phase 10 (Password-Protected Archives and Package Sets) - IN PROGRESS
 
-**Actual Progress:** The codebase is at Phase 10 of 13. Recent work (1) fixed the pipeline gap where raw APKs and case archives containing APKs were only treated as generic ZIP containers, so APK analysis stages (`apk_structure`, `apk`, `signing`, `dex`, `code_analysis`) never ran for them; (2) added `SplitApkSetBuilder` to bundle multiple staged APKs into a synthetic APKS container; (3) wired multi-file intake (`ACTION_SEND_MULTIPLE`) through the manifest, share activity, navigation, and file picker.
+**Actual Progress:** The codebase is at Phase 10 of 13. Recent work (1) fixed the pipeline gap where raw APKs and case archives containing APKs were only treated as generic ZIP containers, so APK analysis stages (`apk_structure`, `apk`, `signing`, `dex`, `code_analysis`) never ran for them; (2) added `SplitApkSetBuilder` to bundle multiple staged APKs into a synthetic APKS container; (3) wired multi-file intake (`ACTION_SEND_MULTIPLE`, multi-file picker, URI-list navigation); (4) implemented the intake staging coordinator that stages URIs into a private case workspace and bundles multiple APKs into a case before analysis.
 
 ## Overall Progress
 
@@ -176,7 +176,8 @@
 - ✅ SplitApkSetBuilder creates a synthetic APKS container from multiple staged APK files (base.apk + split_N.apk, STORED entries, BundleConfig.pb marker)
 - ✅ ACTION_SEND_MULTIPLE share target: manifest intent filters, URI list validation (scheme, MIME, item-count cap), confirmation screen, multi-URI navigation
 - ✅ Multi-file document picker (OpenMultipleDocuments) with list-based navigation route
-- ⚠️ Multi-file staging + APKS bundling into a case workspace not yet wired (next)
+- ✅ IntakeStagingCoordinator stages URIs into private case workspace; single file becomes original.bin, multiple files are bundled into a synthetic APKS (original.bin) via SplitApkSetBuilder
+- ✅ IntakeViewModel drives multi-file intake state (load, confirm, staging, ready, error)
 - ❌ Case ZIP support with notes/text inventory
 
 ### Phase 11-12: ❌ NOT STARTED
@@ -217,13 +218,14 @@
 - ✅ AnalysisPipelineIntegrationTest (end-to-end pipeline with config, archive section, stage results, package set analysis)
 - ✅ SplitApkSetBuilderTest (synthetic APKS construction, base/split naming, STORED preservation, size/count bounds, cleanup on failure)
 - ✅ Pipeline regression tests: raw APK runs APK stages, case archive with contained APK extracts and analyzes, plain archive skips APK stages, split APK set produces package set report
+- ✅ IntakeStagingCoordinatorTest (single-file staging, multi-file APKS bundling with scratch cleanup, empty input, staging failure cleanup, bundle failure cleanup)
 - ✅ CaseCleanupWorkerTest (retention-based cleanup, scratch data cleanup)
 - ✅ NestedArchiveTest (nested depth reporting, max compression ratio, unsupported entries)
 
 ### Test Results
-- **Total Tests:** ~219 test cases
+- **Total Tests:** 233 test cases
 - **Status:** All passing
-- **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation, split APK set construction, raw-APK and case-archive pipeline dispatch
+- **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation, split APK set construction, raw-APK and case-archive pipeline dispatch, multi-file intake staging orchestration
 - **Missing:** Archive UI tests, signed APK fixtures for apksig
 
 ## Build Status
@@ -285,6 +287,7 @@
 28. **Raw-APK and Case-Archive Dispatch**: Pipeline runs full APK analysis stages on raw APKs and on APK entries extracted from case archives, with provenance limitations
 29. **Split APK Set Bundling**: SplitApkSetBuilder combines staged APKs into a bounded synthetic APKS container
 30. **Multi-File Share Intake**: ACTION_SEND_MULTIPLE validated and confirmed before any staging; never auto-analyzes
+31. **Multi-File Staging Coordinator**: Stages selected URIs into the private case workspace; single file becomes the case input, multiple files are bundled into a synthetic APKS before analysis
 
 ## Repository
 
@@ -313,13 +316,14 @@ PocketLab has made significant progress. The recent session added:
 - Fixed a critical pipeline gap: raw APK files (which are also ZIPs) and case archives containing APKs now run the full APK analysis stages (`apk_structure`, `apk`, `signing`, `dex`, `code_analysis`) instead of being treated as generic archives only
 - SplitApkSetBuilder to construct a synthetic APKS package set from multiple staged APKs, with strict size/count bounds and cleanup on failure
 - Multi-file intake wiring: `ACTION_SEND_MULTIPLE` manifest filters, multi-URI share validation and confirmation, multi-file document picker, and a URI-list navigation route
-- 3 new pipeline regression/feature tests and 7 new SplitApkSetBuilder tests
+- IntakeStagingCoordinator + IntakeViewModel: stage URIs into the private case workspace and bundle multiple APKs into a synthetic APKS before analysis; any failure deletes the whole case workspace
+- 3 pipeline regression/feature tests, 7 SplitApkSetBuilder tests, and 6 IntakeStagingCoordinator tests
 
-Total tests: ~219, all passing.
+Total tests: 233, all passing.
 
 The critical path forward is:
-1. Wire multi-file staging + APKS bundling into the case workspace
-2. Add case ZIP support with notes/text inventory
+1. Add case ZIP support with notes/text inventory
+2. Wire AnalysisScreen to run real analysis on staged cases
 3. Add comprehensive fuzzing tests
 4. Native ELF analysis expansion
 5. Prepare for Play Store release

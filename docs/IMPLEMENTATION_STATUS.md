@@ -246,7 +246,7 @@ XML and resource-table parsers.
 - ✅ ArchiveAnalyzerFuzzTest (random ZIP bytes plus byte-flip/truncation mutants of a valid ZIP through ZipValidator preflight and enumeration)
 
 ### Test Results
-- **Total Tests:** 302 test cases
+- **Total Tests:** 312 test cases
 - **Status:** All passing
 - **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation, split APK set construction, raw-APK and case-archive pipeline dispatch, multi-file intake staging orchestration, case ZIP notes/text inventory, analysis view-model state orchestration, property-based archive path safety, property-based IOC extraction invariants, native ELF symbol/dependency/JNI/segment analysis, comprehensive deterministic fuzzing of file-type, binary XML, resource table, DEX, ELF, and report renderer boundaries
 - **Missing:** Archive UI tests, signed APK fixtures for apksig
@@ -326,7 +326,7 @@ XML and resource-table parsers.
 ## Next Steps
 
 ### Immediate (Next)
-1. Begin Stage 15.2 (OOXML): reuse hardened ZIP scanning to inventory `.docx/.xlsm/.pptm` content types, relationships, macros, external links/hyperlinks
+1. Begin Stage 15.3 (Legacy OLE/CFB): bounded compound-file directory parser for `.doc/.xls/.ppt/.rtf` — streams, VBA, embedded objects, ActiveX, external links, metadata, indicators; treat as hostile binary attack surface with extensive malformed fixtures + fuzz
 2. Expand physical test corpus and instrumentation coverage (process isolation, cancellation, export surface)
 
 ### Short-term
@@ -424,6 +424,16 @@ the expansion task requires maintaining it; `AGENTS.md` was also re-pointed at i
 - ✅ 8 analyzer tests + 2 fuzz tests (`PdfAnalyzerTest`, `PdfAnalyzerFuzzTest`, `PdfTestFixture`/`ByteArtifactRef`)
 - ✅ Pre-existing API-33 `readNBytes` lint errors fixed in `engine:archive` (`CaseZipTextScanner`, `SelectiveExtractor`) and `engine:pipeline` (`AnalysisPipeline`)
 - ✅ `:engine:pdf:testDebugUnitTest` green; touched modules lint-clean; full regression suite passing (302 tests)
-- ⏭ Next: Stage 15.2 OOXML. Each stage adds one `ArtifactAnalyzer` to `analyzerRegistry()`.
+
+### Phase 15.2 (Format Expansion Stages) — Stage 15.2 OOXML ✅ IMPLEMENTED
+- ✅ New module `:engine:ooxml` (`settings.gradle.kts`, `engine/ooxml/build.gradle.kts`) — library module, pure engine code (no Android framework types), deps: `core:common`, `core:model`, `engine:api`, `engine:ioc`, commons-compress, coroutines, timber
+- ✅ `OoxmlScanReport` — bounded scan result model (part count, content-types/macro/ActiveX/embedded-OLE/external-link/custom-XML/signature flags, hyperlink + external targets, indicators, abnormalities, parser errors)
+- ✅ `OoxmlScanner` — opens the package through a read-only, bounds-checked `SeekableByteChannel` over `ArtifactRef` (nothing extracted to disk) using commons-compress `ZipFile`; enumerates parts under entry/size/expanded caps; detects `[Content_Types].xml`, `vbaProject.bin`/`vbaData.xml` (macros), `activeX`, `embeddings/`+`oleObject` (embedded OLE), `xl/externalLinks/` (external data links), `customXml/`, `_xmlsignatures/`; reads small `*.rels` parts (bounded UTF-8) to collect external relationship targets (hyperlinks, remote templates) and extract defanged indicators; marks truncated/malformed scans incomplete (never false-clean); honors cancellation on every loop iteration
+- ✅ `OoxmlAnalyzer` — `ArtifactAnalyzer` (id `ooxml.analyzer`, v `1.0.0`, supports `OOXML`); findings `OOXML-MACRO-001`, `OOXML-ACTIVEX-001`, `OOXML-EMBEDDED-001`, `OOXML-EXTLINK-001`; facts + metadata; defensive type-mismatch guard
+- ✅ `core:model` — added `DetectedType.OOXML`; `LayeredTypeDetector` maps OOXML extensions and treats ZIP-signature + OOXML extension as an OOXML structural signal (ZIP container), with `ZIP_CONTAINER` subtype
+- ✅ `AnalysisOrchestrator` — `analyzerRegistry()` now registers `OoxmlAnalyzer()` alongside `PdfAnalyzer()`
+- ✅ 8 analyzer tests + 2 fuzz tests (`OoxmlAnalyzerTest`, `OoxmlAnalyzerFuzzTest`, `OoxmlTestFixture`/`ByteArtifactRef`) covering plain-doc no-false-findings, VBA, external links + URL defanging, embedded OLE, custom XML + signatures, plain ZIP (no OOXML flag), malformed/non-ZIP, type mismatch, and randomized hostile corpora
+- ✅ `:engine:ooxml:testDebugUnitTest` green (312 total); `:engine:ooxml` + `:engine:orchestrator` lint-clean; full regression suite passing (312 tests)
+- ⏭ Next: Stage 15.3 Legacy OLE/CFB. Each stage adds one `ArtifactAnalyzer` to `analyzerRegistry()`.
 
 ## Next Steps (updated)

@@ -37,5 +37,6 @@ enum class DetectedType {
     TEXT,
     SCRIPT,
     APKS,
-    XAPK
+    XAPK,
+    OOXML
 }

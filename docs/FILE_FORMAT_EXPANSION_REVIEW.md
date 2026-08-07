@@ -166,6 +166,7 @@ families (PE, OLE) last. Every stage is gated on the framework being complete.
 |---:|---|---|---|
 | Frame | Generic framework | ✅ implemented | Phase 14; ADR-0004 |
 | 1 | PDF | ✅ implemented | `:engine:pdf` (`PdfScanner`/`PdfAnalyzer`, id `pdf.analyzer` v1.0.0); bounded 16 MiB read-only scan; JS/OpenAction/Launch/XFA/embedded/remote/encryption/signature detection; defanged URL indicators; findings PDF-*-001; fuzz tests (`PdfAnalyzerFuzzTest`) |
+| 2 | OOXML | ✅ implemented | `:engine:ooxml` (`OoxmlScanner`/`OoxmlAnalyzer`, id `ooxml.analyzer` v1.0.0); ZIP container read via bounded channel (nothing extracted); VBA/ActiveX/embedded-OLE/external-links/custom-XML/signature detection; defanged external/hyperlink targets; findings OOXML-*-001; fuzz tests (`OoxmlAnalyzerFuzzTest`) |
 
 ---
 

@@ -15,6 +15,10 @@ object LayeredTypeDetector {
         val signature = detectBySignature(source)
         val extension = detectByExtension(source.advisoryExtension)
 
+        // OOXML packages are ZIP containers: a ZIP content signature with an
+        // OOXML extension is an OOXML structural signal, not a mismatch.
+        val isZipBasedOoxml = signature == DetectedType.ZIP && extension == DetectedType.OOXML
+
         val byLayer: DetectionLayer = when {
             signature != null -> DetectionLayer.CONTENT_SIGNATURE
             extension != null -> DetectionLayer.ADVISORY_EXTENSION
@@ -22,11 +26,21 @@ object LayeredTypeDetector {
         }
 
         val mismatches = mutableListOf<String>()
-        if (signature != null && extension != null && signature != extension) {
+        if (signature != null && extension != null && signature != extension && !isZipBasedOoxml) {
             mismatches += "MAGIC_EXTENSION_MISMATCH"
         }
-        val type = signature ?: extension ?: DetectedType.UNKNOWN
-        return DetectedArtifact(type = type, byLayer = byLayer, mismatchFlags = mismatches)
+        val type = when {
+            isZipBasedOoxml -> DetectedType.OOXML
+            signature != null -> signature
+            extension != null -> extension
+            else -> DetectedType.UNKNOWN
+        }
+        return DetectedArtifact(
+            type = type,
+            subtype = if (isZipBasedOoxml) "ZIP_CONTAINER" else null,
+            byLayer = byLayer,
+            mismatchFlags = mismatches,
+        )
     }
 
     private fun detectBySignature(source: ArtifactSource): DetectedType? {
@@ -51,6 +65,10 @@ object LayeredTypeDetector {
             "doc", "xls", "ppt" -> DetectedType.OLE
             "elf", "so" -> DetectedType.ELF
             "exe", "dll" -> DetectedType.PE
+            "docx", "docm", "dotx", "dotm",
+            "xlsx", "xlsm", "xlsb", "xltx", "xltm", "xlam",
+            "pptx", "pptm", "ppsx", "ppsm", "potx", "potm",
+            "sldx", "sldm", "ppam" -> DetectedType.OOXML
             else -> null
         }
 

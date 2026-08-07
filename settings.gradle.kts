@@ -41,6 +41,7 @@ include(":engine:native")
 include(":engine:ioc")
 include(":engine:rules")
 include(":engine:pdf")
+include(":engine:ooxml")
 
 include(":feature:onboarding")
 include(":feature:home")

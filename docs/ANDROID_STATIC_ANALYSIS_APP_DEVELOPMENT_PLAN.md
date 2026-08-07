@@ -3786,13 +3786,26 @@ JS, never extracts embedded files, never contacts URIs. Registered in `AnalyzerO
 Incomplete on truncation/parser-error (never false-clean). Extracted parse currently skips full object-tree
 graph reconstruction, page count, and font/image enumeration (future scope).
 
-### Phase 15.2 — OOXML (Stage 2)
+### Phase 15.2 — OOXML (Stage 2) ✅ IMPLEMENTED (`:engine:ooxml`)
 `.docx/.docm/.dotx/.dotm`, `.xlsx/.xlsm/.xlsb/.xltx/.xltm/.xlam`,
 `.pptx/.pptm/.ppsx/.ppsm/.potx/.potm/.sldx/.sldm/.ppam` — reuse hardened ZIP; `[Content_Types].xml`,
 relationships, external relationships, remote templates, hyperlinks, embedded files/OLE, VBA, ActiveX,
 macros, external connections, custom XML, signatures, encryption, hidden sheets/slides, network-significant
 formulas, high-entropy objects, content-type/extension mismatches, nested artifacts. Never assume a
 non-macro extension is safe.
+
+Status note: `:engine:ooxml` `OoxmlScanner`/`OoxmlAnalyzer` (analyzer id `ooxml.analyzer` v1.0.0) opens
+the package through a bounded read-only `SeekableByteChannel` over `ArtifactRef` using commons-compress
+`ZipFile` (nothing extracted to disk), enumerates parts under caps, and reads only small `*.rels` parts
+to collect external relationship targets (hyperlinks, remote/external links) as defanged indicators. Detects
+`[Content_Types].xml`, `vbaProject.bin`/`vbaData.xml` (VBA), `activeX`, `embeddings/`+`oleObject` (embedded
+OLE), `xl/externalLinks/` (external data links), `customXml/`, and `_xmlsignatures/`. Never executes macros,
+never extracts embedded binary parts, never contacts targets. Registered in
+`AnalyzerOrchestrator.analyzerRegistry()`. Incomplete on truncation/parser-error (never false-clean).
+`DetectedType.OOXML` added; the layered detector maps ZIP-signature + OOXML extension as an OOXML structural
+signal. Current scan collects package parts and relationships but skips full part-body parsing (e.g. VBA
+bytecode, embedded connection XML bodies), crafted macro/Office formula internals, and hidden sheet/slide
+enumeration (future scope).
 
 ### Phase 15.3 — Legacy OLE/CFB (Stage 3)
 `.doc/.dot/.xls/.xlt/.xla/.ppt/.pps/.pot/.ppa/.rtf` — bounded compound-file parser: directory, streams,

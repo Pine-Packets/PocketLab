@@ -4,6 +4,7 @@ import com.pineandpackets.pocketlab.core.model.AnalysisReport
 import com.pineandpackets.pocketlab.engine.api.AnalysisEngine
 import com.pineandpackets.pocketlab.engine.api.AnalysisRequest
 import com.pineandpackets.pocketlab.engine.api.EngineInfo
+import com.pineandpackets.pocketlab.engine.pipeline.AnalysisConfig
 import com.pineandpackets.pocketlab.engine.pipeline.AnalysisPipeline
 import com.pineandpackets.pocketlab.engine.pipeline.HashResult
 import kotlinx.coroutines.flow.Flow
@@ -12,9 +13,9 @@ import timber.log.Timber
 import java.io.File
 import java.util.UUID
 
-class AnalysisOrchestrator : AnalysisEngine {
-    
-    private val pipeline = AnalysisPipeline()
+class AnalysisOrchestrator(
+    private val configOverrides: AnalysisConfig? = null
+) : AnalysisEngine {
     
     override suspend fun analyze(request: AnalysisRequest): Flow<com.pineandpackets.pocketlab.engine.api.AnalysisProgress> {
         Timber.i("Starting analysis for job ${request.jobId}")
@@ -24,13 +25,16 @@ class AnalysisOrchestrator : AnalysisEngine {
             throw IllegalArgumentException("Input file does not exist: ${request.inputPath}")
         }
         
+        val config = configOverrides ?: AnalysisConfig.fromRequest(request)
+        val pipeline = AnalysisPipeline(config)
+        
         val hashes = HashResult(
             sha256 = request.sha256 ?: calculateHash(inputFile, "SHA-256"),
             sha1 = request.sha1 ?: calculateHash(inputFile, "SHA-1"),
             md5 = request.md5 ?: calculateHash(inputFile, "MD5")
         )
         
-        return pipeline.analyze(request.jobId, inputFile, hashes).map { progress ->
+        return pipeline.analyze(request.jobId, inputFile, hashes, request.archivePassword).map { progress ->
             when (progress) {
                 is com.pineandpackets.pocketlab.engine.pipeline.AnalysisProgress.StageStarted ->
                     com.pineandpackets.pocketlab.engine.api.AnalysisProgress.StageStarted(

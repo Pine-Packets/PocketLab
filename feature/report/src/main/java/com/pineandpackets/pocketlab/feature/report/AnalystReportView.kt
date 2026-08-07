@@ -53,6 +53,19 @@ fun AnalystReportView(
             }
         }
         
+        report.archive?.let { archive ->
+            item {
+                AnalystSectionCard(
+                    title = "Archive Info",
+                    sectionKey = "archive",
+                    expanded = expandedSection == "archive",
+                    onToggle = { expandedSection = if (expandedSection == "archive") "" else "archive" }
+                ) {
+                    ArchiveInfoContent(archive)
+                }
+            }
+        }
+        
         report.apk?.let { apk ->
             item {
                 AnalystSectionCard(
@@ -258,6 +271,94 @@ private fun FileMetadataContent(report: AnalysisReport) {
 }
 
 @Composable
+private fun ArchiveInfoContent(archive: ArchiveReportSection) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        MetadataRow("Archive Type", archive.archiveType)
+        MetadataRow("Encrypted", archive.encrypted.toString())
+        MetadataRow("Entry Count", archive.entryCount.toString())
+        MetadataRow("Compressed Size", formatBytes(archive.declaredCompressedSize))
+        MetadataRow("Expanded Size", formatBytes(archive.declaredExpandedSize))
+        MetadataRow("Integrity", archive.integrityStatus.name)
+        
+        if (archive.suspiciousPaths.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Suspicious Paths (${archive.suspiciousPaths.size}):",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.error
+            )
+            archive.suspiciousPaths.take(10).forEach { path ->
+                Text(
+                    text = "• $path",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+            if (archive.suspiciousPaths.size > 10) {
+                Text(
+                    text = "... and ${archive.suspiciousPaths.size - 10} more",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        
+        if (archive.duplicateEntries.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Duplicate Entries (${archive.duplicateEntries.size}):",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.tertiary
+            )
+            archive.duplicateEntries.take(5).forEach { path ->
+                Text(
+                    text = "• $path",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        }
+        
+        if (archive.analyzedChildren.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Entries (${archive.analyzedChildren.size}):",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold
+            )
+            archive.analyzedChildren.take(20).forEach { child ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = child.path,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = formatBytes(child.expandedSize),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            if (archive.analyzedChildren.size > 20) {
+                Text(
+                    text = "... and ${archive.analyzedChildren.size - 20} more entries",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ApkInfoContent(apk: ApkInfo) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         apk.packageName?.let { MetadataRow("Package", it) }
@@ -342,6 +443,7 @@ private fun SigningInfoContent(signingInfo: SigningInfo) {
         MetadataRow("Verified", signingInfo.verified.toString())
         MetadataRow("Signers", signingInfo.signerCount.toString())
         MetadataRow("Schemes", signingInfo.signatureSchemes.joinToString(", "))
+        MetadataRow("Has Lineage", signingInfo.hasLineage.toString())
         
         if (signingInfo.certificates.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
@@ -364,6 +466,33 @@ private fun SigningInfoContent(signingInfo: SigningInfo) {
                 MetadataRow("Self-Signed", cert.selfSigned.toString())
                 MetadataRow("Valid From", cert.validFrom)
                 MetadataRow("Valid To", cert.validTo)
+            }
+        }
+        
+        if (signingInfo.hasLineage && signingInfo.signingLineage.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Signing Lineage:",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold
+            )
+            signingInfo.signingLineage.forEachIndexed { index, entry ->
+                Text(
+                    text = "Lineage Entry ${index + 1}:",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                MetadataRow("Index", entry.index.toString())
+                MetadataRow("Current Signer", entry.isCurrentSigner.toString())
+                entry.rotationTarget?.let {
+                    MetadataRow("Rotation Target", it.take(20) + "...")
+                }
+                entry.proofOfRotation?.let {
+                    MetadataRow("Proof", it)
+                }
+                if (entry.certificate.fingerprint.isNotEmpty()) {
+                    MetadataRow("Certificate", entry.certificate.fingerprint.take(20) + "...")
+                }
             }
         }
     }

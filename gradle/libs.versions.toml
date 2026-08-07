@@ -44,6 +44,9 @@ kotest = "5.9.0"
 # Archive support
 commons-compress = "1.27.1"
 
+# APK signing
+apksig = "8.7.3"
+
 # Utilities
 timber = "5.0.1"
 
@@ -114,6 +117,9 @@ kotest-property = { group = "io.kotest", name = "kotest-property", version.ref =
 
 # Archive support
 commons-compress = { group = "org.apache.commons", name = "commons-compress", version.ref = "commons-compress" }
+
+# APK signing
+apksig = { group = "com.android.tools.build", name = "apksig", version.ref = "apksig" }
 
 # Logging
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }

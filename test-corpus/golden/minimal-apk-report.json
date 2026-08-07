@@ -32,6 +32,7 @@
     "md5": "d41d8cd98f00b204e9800998ecf8427e"
   },
   "containers": [],
+  "archive": null,
   "files": [
     {
       "id": "file-1",
@@ -86,7 +87,9 @@
           "selfSigned": true,
           "debugCertificate": false
         }
-      ]
+      ],
+      "signingLineage": [],
+      "hasLineage": false
     }
   },
   "dex": [

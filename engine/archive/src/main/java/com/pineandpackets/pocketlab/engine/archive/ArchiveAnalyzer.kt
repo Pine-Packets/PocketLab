@@ -12,7 +12,29 @@ class ArchiveAnalyzer {
     
     private val zipValidator = ZipValidator()
     
-    fun analyzeArchive(archiveFile: File, password: String? = null): Result<ArchiveAnalysisResult> {
+    /**
+     * Analyzes an archive with support for nested archives.
+     * 
+     * @param archiveFile The archive file to analyze
+     * @param password Optional password for encrypted archives
+     * @param currentDepth Current nesting depth (used for recursion tracking)
+     * @param globalQuota Shared quota tracker across all nested archives
+     * @return Analysis result with nested archive information
+     */
+    fun analyzeArchive(
+        archiveFile: File, 
+        password: String? = null,
+        currentDepth: Int = 0,
+        globalQuota: ArchiveQuotaTracker = ArchiveQuotaTracker()
+    ): Result<ArchiveAnalysisResult> {
+        // Check depth limit
+        if (!globalQuota.canProcessDepth(currentDepth)) {
+            return Result.failure(
+                AnalysisError.QuotaExceededError("Maximum nesting depth of ${AnalysisLimits.MAX_NESTING_DEPTH} exceeded")
+            )
+        }
+        globalQuota.updateDepth(currentDepth)
+        
         return try {
             // Validate ZIP structure first
             val validationResult = zipValidator.validate(archiveFile)
@@ -26,7 +48,23 @@ class ArchiveAnalyzer {
                 Timber.w("ZIP validation warnings: ${validationResult.warnings.joinToString(", ")}")
             }
             
-            val zipFile = ZipFile.builder().setFile(archiveFile).get()
+            // Build ZIP file with password if provided
+            // First, try to open without password to check if it's actually encrypted
+            val zipFile = try {
+                ZipFile.builder().setFile(archiveFile).get()
+            } catch (e: Exception) {
+                // If opening without password fails and we have a password, try with password
+                if (password != null) {
+                    try {
+                        @Suppress("DEPRECATION")
+                        ZipFile(archiveFile, password)
+                    } catch (e2: Exception) {
+                        throw AnalysisError.ArchiveError("Failed to open archive with password: ${e2.message}", e2)
+                    }
+                } else {
+                    throw AnalysisError.ArchiveError("Failed to open archive: ${e.message}", e)
+                }
+            }
             val decompressionCounter = DecompressionCounter()
             
             zipFile.use { zip ->
@@ -43,6 +81,13 @@ class ArchiveAnalyzer {
                 var suspiciousPaths = mutableListOf<String>()
                 
                 for (entry in entries) {
+                    // Check global quota before processing each entry
+                    if (!globalQuota.canProcessMoreEntries()) {
+                        return Result.failure(
+                            AnalysisError.QuotaExceededError("Global entry quota exceeded across nested archives")
+                        )
+                    }
+                    
                     // Track entry count
                     val entryResult = decompressionCounter.addEntry()
                     if (entryResult.isFailure) {
@@ -50,6 +95,9 @@ class ArchiveAnalyzer {
                             AnalysisError.QuotaExceededError(entryResult.exceptionOrNull()?.message ?: "Decompression limit exceeded")
                         )
                     }
+                    
+                    // Update global quota
+                    globalQuota.addEntry()
                     
                     val entryName = entry.name
                     
@@ -66,6 +114,13 @@ class ArchiveAnalyzer {
                     val expandedSize = entry.size
                     val compressedSize = entry.compressedSize
                     
+                    // Check global byte quota
+                    if (!globalQuota.canProcessMoreBytes()) {
+                        return Result.failure(
+                            AnalysisError.QuotaExceededError("Global byte quota exceeded across nested archives")
+                        )
+                    }
+                    
                     // Track compressed bytes
                     decompressionCounter.addCompressedBytes(compressedSize)
                     
@@ -76,6 +131,9 @@ class ArchiveAnalyzer {
                             AnalysisError.QuotaExceededError(uncompressedResult.exceptionOrNull()?.message ?: "Decompression limit exceeded")
                         )
                     }
+                    
+                    // Update global quota
+                    globalQuota.addExpandedBytes(expandedSize)
                     
                     // Check compression ratio
                     val ratioResult = decompressionCounter.checkCompressionRatio(compressedSize, expandedSize)
@@ -102,6 +160,34 @@ class ArchiveAnalyzer {
                         )
                     }
                     
+                    // Detect encryption from entry flags
+                    val isEncrypted = isEntryEncrypted(entry)
+                    val isNested = isArchiveFile(entryName, entry)
+                    
+                    // Handle nested archive
+                    var nestedResult: ArchiveAnalysisResult? = null
+                    if (isNested && !entry.isDirectory && !isEncrypted) {
+                        // Extract nested archive to temp file for analysis
+                        val tempFile = extractEntryToTempFile(zip, entry)
+                        if (tempFile != null) {
+                            try {
+                                val nestedAnalysis = analyzeArchive(
+                                    tempFile,
+                                    password = null,
+                                    currentDepth = currentDepth + 1,
+                                    globalQuota = globalQuota
+                                )
+                                if (nestedAnalysis.isSuccess) {
+                                    nestedResult = nestedAnalysis.getOrNull()
+                                } else {
+                                    Timber.w("Failed to analyze nested archive $entryName: ${nestedAnalysis.exceptionOrNull()?.message}")
+                                }
+                            } finally {
+                                tempFile.delete()
+                            }
+                        }
+                    }
+                    
                     analyzedEntries.add(
                         AnalyzedArchiveEntry(
                             originalPath = entryName,
@@ -109,14 +195,18 @@ class ArchiveAnalyzer {
                             compressedSize = compressedSize,
                             expandedSize = expandedSize,
                             isDirectory = entry.isDirectory(),
-                            isEncrypted = false, // TODO: Detect encryption from entry flags
-                            isNestedArchive = isArchiveFile(entryName, entry)
+                            isEncrypted = isEncrypted,
+                            isNestedArchive = isNested,
+                            nestedArchiveResult = nestedResult
                         )
                     )
                 }
                 
                 val hasEncryptedEntries = analyzedEntries.any { it.isEncrypted }
                 val decompressionStats = decompressionCounter.getStats()
+                val unsupportedEntries = analyzedEntries
+                    .filter { !it.isEncrypted && isUnsupportedMethod(entries.firstOrNull { e -> e.name == it.originalPath }) }
+                    .map { it.normalizedPath }
                 
                 Timber.i("Decompression stats: ${decompressionStats.entryCount} entries, " +
                     "ratio: ${"%.2f".format(decompressionStats.getOverallRatio())}, " +
@@ -131,13 +221,31 @@ class ArchiveAnalyzer {
                         suspiciousPaths = suspiciousPaths,
                         isEncrypted = hasEncryptedEntries,
                         passwordRequired = hasEncryptedEntries && password == null,
-                        passwordAccepted = password != null && hasEncryptedEntries
+                        passwordAccepted = password != null && hasEncryptedEntries,
+                        maxObservedRatio = decompressionStats.maxCompressionRatio,
+                        nestedDepth = globalQuota.maxDepthReached,
+                        unsupportedEntries = unsupportedEntries
                     )
                 )
             }
         } catch (e: Exception) {
             Timber.e(e, "Failed to analyze archive")
             Result.failure(AnalysisError.ArchiveError("Failed to analyze archive", e))
+        }
+    }
+    
+    private fun extractEntryToTempFile(zip: ZipFile, entry: ZipArchiveEntry): File? {
+        return try {
+            val tempFile = File.createTempFile("nested_archive_", ".tmp")
+            zip.getInputStream(entry).use { input ->
+                tempFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            tempFile
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to extract nested archive entry ${entry.name}")
+            null
         }
     }
     
@@ -200,6 +308,65 @@ class ArchiveAnalyzer {
         
         return false
     }
+    
+    private fun isEntryEncrypted(entry: ZipArchiveEntry): Boolean {
+        // Check general purpose bit flag for encryption
+        // Apache Commons Compress provides a method to check this directly
+        return try {
+            entry.generalPurposeBit?.usesEncryption() ?: false
+        } catch (e: Exception) {
+            // Fallback: assume not encrypted if we can't determine
+            false
+        }
+    }
+    
+    private fun isUnsupportedMethod(entry: ZipArchiveEntry?): Boolean {
+        if (entry == null) return false
+        return try {
+            val method = entry.method
+            method != ZipArchiveEntry.STORED && method != ZipArchiveEntry.DEFLATED
+        } catch (e: Exception) {
+            false
+        }
+    }
+}
+
+/**
+ * Tracks global quotas across nested archive processing to prevent resource exhaustion.
+ */
+class ArchiveQuotaTracker {
+    var totalEntriesProcessed = 0
+        private set
+    var totalExpandedBytes = 0L
+        private set
+    var maxDepthReached = 0
+        private set
+    
+    fun addEntry() {
+        totalEntriesProcessed++
+    }
+    
+    fun addExpandedBytes(bytes: Long) {
+        totalExpandedBytes += bytes
+    }
+    
+    fun updateDepth(depth: Int) {
+        if (depth > maxDepthReached) {
+            maxDepthReached = depth
+        }
+    }
+    
+    fun canProcessMoreEntries(): Boolean {
+        return totalEntriesProcessed < AnalysisLimits.MAX_ARCHIVE_ENTRIES
+    }
+    
+    fun canProcessMoreBytes(): Boolean {
+        return totalExpandedBytes < AnalysisLimits.MAX_ARCHIVE_EXPANDED_BYTES
+    }
+    
+    fun canProcessDepth(depth: Int): Boolean {
+        return depth <= AnalysisLimits.MAX_NESTING_DEPTH
+    }
 }
 
 data class ArchiveAnalysisResult(
@@ -210,7 +377,11 @@ data class ArchiveAnalysisResult(
     val suspiciousPaths: List<String>,
     val isEncrypted: Boolean,
     val passwordRequired: Boolean = false,
-    val passwordAccepted: Boolean = false
+    val passwordAccepted: Boolean = false,
+    val maxObservedRatio: Double = 0.0,
+    val nestedDepth: Int = 0,
+    val quotaEvents: List<String> = emptyList(),
+    val unsupportedEntries: List<String> = emptyList()
 )
 
 data class AnalyzedArchiveEntry(
@@ -220,5 +391,6 @@ data class AnalyzedArchiveEntry(
     val expandedSize: Long,
     val isDirectory: Boolean,
     val isEncrypted: Boolean,
-    val isNestedArchive: Boolean = false
+    val isNestedArchive: Boolean = false,
+    val nestedArchiveResult: ArchiveAnalysisResult? = null
 )

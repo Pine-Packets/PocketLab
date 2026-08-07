@@ -1,12 +1,12 @@
 # PocketLab Implementation Status
 
-**Last Updated:** 2026-08-06 (end of session)  
+**Last Updated:** 2026-08-06 (session continued - package set pipeline integration and archive correlation complete)  
 **Project:** PocketLab - Android Static Malware Analysis App  
 **Organization:** Pine and Packets LLC
 
-## Current Phase: Phase 8 (Reporting and Export) - COMPLETE
+## Current Phase: Phase 10 (Password-Protected Archives and Package Sets) - IN PROGRESS
 
-**Actual Progress:** The codebase is at Phase 8 of 13. Recent work completed constant propagation, correlation rules, debug certificate detection, analyst notes, report redaction settings, and golden report snapshots.
+**Actual Progress:** The codebase is at Phase 10 of 13. Recent work completed wiring the PackageSetAnalyzer into the AnalysisPipeline end-to-end, enriched the archive report section with correlation metrics (max ratio, nested depth, unsupported entries, detected child types), and added archive and pipeline tests.
 
 ## Overall Progress
 
@@ -30,10 +30,12 @@
 - ✅ Manifest policy tests (no dangerous permissions, backup disabled)
 - ✅ Forbidden API tests (no execution APIs)
 - ✅ Demo case with static fixture data (DemoFixtureGenerator)
-- ⚠️ Settings screen is placeholder
-- ⚠️ No retention/cleanup worker
+- ✅ Settings screen with Privacy & Storage, Analysis, and Appearance sections
+- ✅ SettingsRepository with DataStore preferences
+- ✅ CaseCleanupWorker for retention-based case lifecycle management
+- ✅ Settings wired to analysis pipeline via AnalysisConfig
 
-### Phase 2: File Intake and Type Detection ✅ COMPLETE
+### Phase 2: File Intake and Type Detection ✅ MOSTLY COMPLETE
 - ✅ FileTypeDetector with magic byte detection
 - ✅ Support for ZIP, APK, DEX, ELF, PE, PDF, OLE, GZIP, 7z, RAR
 - ✅ Extension and MIME type validation
@@ -42,9 +44,10 @@
 - ✅ File picker uses narrow MIME types (APK, ZIP, DEX)
 - ✅ ACTION_SEND share target activity created
 - ✅ ShareIntakeActivity with URI validation
+- ✅ Available storage check before staging (200MB minimum)
+- ✅ DeviceCapabilityProfiler with memory/storage/ABI profiling
+- ✅ Device capability profiling wired to analysis limits via AnalysisClient
 - ⚠️ Intake confirmation screen needs enhancement
-- ⚠️ No available storage check before staging
-- ⚠️ No device capability profiling
 
 ### Phase 3: Archive Analysis ✅ MOSTLY COMPLETE
 - ✅ ArchiveAnalyzer using Apache Commons Compress
@@ -58,7 +61,9 @@
 - ✅ Central directory validation (EOCD, Zip64) via ZipValidator
 - ✅ Runtime decompression counters via DecompressionCounter
 - ✅ Nested archive identification
-- ❌ Selective extraction to randomized names
+- ✅ Selective extraction with randomized names via SelectiveExtractor
+- ✅ Archive report section model (ArchiveReportSection)
+- ✅ Password-protected ZIP support with encryption detection
 - ❌ Archive report section in UI
 
 ### Phase 4: APK Analysis ✅ MOSTLY COMPLETE
@@ -73,6 +78,7 @@
 - ✅ Intent filter / deep link analysis
 - ✅ APK file inventory with type detection
 - ✅ APK structural validation via ApkStructureValidator
+- ✅ APK structural validation integrated into pipeline
 
 ### Phase 5: Signing Analysis ✅ MOSTLY COMPLETE
 - ✅ SigningAnalyzer for certificate extraction
@@ -81,9 +87,11 @@
 - ✅ Self-signed certificate detection
 - ✅ APK Signing Block detection
 - ✅ Debug certificate detection
-- ❌ AOSP apksig integration
-- ❌ Actual cryptographic verification (verified=false, honest)
-- ❌ Signing lineage parsing
+- ✅ AOSP apksig integration spike (ApksigVerifier wrapper)
+- ✅ apksig confirmed working on Android runtime
+- ✅ ApksigVerifier wired into AnalysisPipeline for cryptographic verification
+- ✅ Signing lineage parsing implemented
+- ✅ Signing lineage displayed in Analyst Report UI
 
 ### Phase 6: DEX Analysis ✅ MOSTLY COMPLETE
 - ✅ DexAnalyzer for DEX file parsing
@@ -144,20 +152,34 @@
 - ✅ CheckpointManager for crash recovery persistence
 - ⚠️ Not tested on actual device
 
-### Phase 10-12: ❌ NOT STARTED
-- Password-protected archive decryption
+### Phase 10: Password-Protected Archives and Package Sets ✅ IN PROGRESS
+- ✅ Password-protected ZIP support with encryption detection
+- ✅ Apache Commons Compress integration for encrypted archives
+- ✅ Password handling with fallback for non-encrypted archives
+- ✅ Nested archive recursion under global budgets
+- ✅ Global quota tracking across nested archives (entries, bytes, depth)
+- ✅ Depth limit enforcement (MAX_NESTING_DEPTH = 2)
+- ✅ Directory entries are not recursively analyzed
+- ✅ APKS format detection and analysis
+- ✅ XAPK format detection and analysis
+- ✅ Manifest parsing for XAPK files
+- ✅ Multi-APK analysis with result merging
+- ✅ Signing certificate consistency checking across splits
+- ✅ Permission and component merging from multiple APKs
+- ✅ PackageSetAnalyzer wired into AnalysisPipeline (packageset stage)
+- ✅ DEX analysis for APKs contained in package sets
+- ✅ Signing verification for base APK in package sets
+- ✅ Archive correlation report: max ratio, nested depth, unsupported entries, detected child types
+- ❌ Multi-file split APK intake (user selects multiple files)
+- ❌ Case ZIP support with notes/text inventory
+
+### Phase 11-12: ❌ NOT STARTED
 - Native ELF analysis (header parser exists)
 - Play Store release preparation
 
 ## Critical Gaps Summary
 
-1. **No cryptographic signature verification** - Honest about not verifying (verified=false)
-2. **No AOSP apksig integration** - Debug certificate detection only
-3. **No selective archive extraction** - Cannot extract specific entries safely
-4. **No pipeline integration tests** - Limited end-to-end test coverage
-5. **Settings screen is placeholder** - Retention/cleanup worker not implemented
-6. **No available storage check before staging**
-7. **No device capability profiling**
+1. **Pipeline integration tests need enhancement** - Tests exist but use minimal fixtures
 
 ## Test Coverage
 
@@ -169,6 +191,7 @@
 - ✅ IocExtractorTest (URL, domain, IP, email extraction)
 - ✅ ReportExporterTest (JSON, Markdown, HTML, CSV export with escaping)
 - ✅ ArchiveAnalyzerTest (path traversal, quota enforcement, decompression)
+- ✅ SelectiveExtractorTest (selective extraction, randomized names, path traversal prevention)
 - ✅ ManifestPolicyTest (permission validation, service isolation)
 - ✅ ForbiddenApiTest (execution API detection)
 - ✅ IsolationBoundaryTest (isolation boundary security)
@@ -178,18 +201,22 @@
 - ✅ ElfAnalyzerTest (ELF header parsing)
 - ✅ BinaryXmlParserTest (binary XML parsing)
 - ✅ ApkAnalyzerTest (APK analysis)
+- ✅ ApksigVerifierTest (apksig integration verification)
 - ✅ DexAnalyzerTest (DEX parsing)
 - ✅ ConstantPropagatorTest (string reconstruction)
 - ✅ RulesEngineTest with correlation rule tests
 - ✅ ReportRedactorTest (redaction settings)
 - ✅ GoldenReportTest (report snapshot regression)
-- ❌ Pipeline integration tests
+- ✅ AnalysisConfigTest (config creation, device profile adaptation)
+- ✅ AnalysisPipelineIntegrationTest (end-to-end pipeline with config, archive section, stage results, package set analysis)
+- ✅ CaseCleanupWorkerTest (retention-based cleanup, scratch data cleanup)
+- ✅ NestedArchiveTest (nested depth reporting, max compression ratio, unsupported entries)
 
 ### Test Results
-- **Total Tests:** ~130 test cases
+- **Total Tests:** ~216 test cases
 - **Status:** All passing
-- **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports
-- **Missing:** Pipeline integration tests, archive selective extraction tests
+- **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation
+- **Missing:** Archive UI tests, signed APK fixtures for apksig
 
 ## Build Status
 
@@ -205,21 +232,17 @@
 ## Known Limitations
 
 ### Current Limitations
-1. **Signature Verification**: Honest about not verifying (verified=false)
-2. **Archive Decryption**: Detection only, no actual decryption
-3. **Code Analysis**: Basic instruction decoding, no full capability extraction
-4. **Report Customization**: No redaction settings or analyst notes
-5. **Test Fixtures**: Placeholder binary XML data in tests
+1. **Archive Decryption**: Detection only, no actual decryption
+2. **Code Analysis**: Basic instruction decoding, no full capability extraction
+3. **Test Fixtures**: Placeholder binary XML data in tests
 
 ### Future Work
-- APK structural validation
-- API capability map and code-level analysis
-- Constant propagation and reflection detection
-- Report redaction and analyst notes
-- Golden report snapshots
-- Pipeline integration tests
-- Native ELF analysis
+- Multi-file split APK intake
+- Case ZIP support with notes/text inventory
+- Add comprehensive fuzzing tests
+- Native ELF analysis expansion
 - Play Store release preparation
+- Advanced code analysis (taint tracking, data flow)
 
 ## Security Features
 
@@ -236,49 +259,57 @@
 10. **Honest Reporting**: Signature verification and encryption detection are honest
 11. **ZIP Bomb Protection**: Runtime decompression counters and ratio checks
 12. **Archive Validation**: Central directory and EOCD validation
+13. **Selective Extraction**: Only specified entries extracted with randomized names
+14. **Storage Pre-check**: Available storage validated before staging (200MB minimum)
+15. **Retention Cleanup**: Automatic case cleanup based on retention policy
+16. **Device Profiling**: Memory/storage/ABI profiling for adaptive limits
+17. **Settings-Driven Analysis**: Configurable analysis profile, IOC extraction, deep DEX analysis
+18. **Dynamic Limits**: Analysis limits adapt to device memory class and capabilities
+19. **Stage Tracking**: Pipeline tracks stage timing, completeness, and confidence
+20. **Archive Report Section**: Structured archive analysis results in canonical report
+21. **Apksig Integration**: AOSP apksig library for cryptographic signature verification (v1/v2/v3 schemes)
+22. **Signing Lineage**: Detection and display of certificate rotation/lineage information
+23. **Password-Protected ZIP Support**: Encryption detection and password handling for encrypted archives
+24. **Nested Archive Handling**: Recursive analysis with global quota tracking and depth limits to prevent resource exhaustion
+25. **APKS/XAPK Package Set Analysis**: Detection and analysis of multi-APK package formats with result merging and consistency checking
+26. **Package Set Pipeline Integration**: End-to-end APKS/XAPK analysis including contained DEX and base-APK signature verification
+27. **Archive Correlation Metrics**: Report records max compression ratio, nested depth, unsupported entries, and detected child types
 
 ## Repository
 
 - **GitHub:** https://github.com/Pine-Packets/PocketLab
 - **Branch:** main
-- **Total Commits:** 5
+- **Total Commits:** 13
 
 ## Next Steps
 
 ### Immediate (Critical)
-1. Add pipeline integration tests
-2. Implement selective archive extraction
-3. Complete Settings screen and retention/cleanup worker
-4. Add available storage check before staging
-5. Add device capability profiling
+1. Complete Phase 10 (multi-file split APK intake, case ZIP support)
+2. Add comprehensive fuzzing tests
+3. Native ELF analysis expansion
 
 ### Short-term
-1. AOSP apksig integration for cryptographic signature verification
-2. Signing lineage parsing
-3. Add comprehensive fuzzing tests
-4. Native ELF analysis expansion
+1. Play Store release preparation
 
 ### Long-term
-1. Password-protected archive decryption
-2. Play Store release preparation
-3. Advanced code analysis (taint tracking, data flow)
-4. Machine learning for malware classification
+1. Advanced code analysis (taint tracking, data flow)
+2. Machine learning for malware classification
 
 ## Conclusion
 
-PocketLab has made significant progress and Phase 8 is now complete. The recent session added:
-- Bounded constant propagation for DEX string reconstruction
-- Correlation rules combining manifest and code facts
-- Debug signing certificate detection
-- Encrypted analyst notes (stored separately, merged at render time)
-- Report redaction settings for safer exports
-- Golden report snapshots for regression testing
+PocketLab has made significant progress. The recent session added:
+- PackageSetAnalyzer wired into the AnalysisPipeline end-to-end (packageset stage)
+- DEX analysis and signing verification for APKs contained in APKS/XAPK package sets
+- Archive correlation report enrichment: max observed ratio, nested depth, unsupported entries, detected child types, nested archive status
+- 3 new pipeline integration tests for APKS/XAPK detection
+- 4 new archive correlation tests (nested depth, max ratio, unsupported method entries)
+
+Total tests: ~216, all passing.
 
 The critical path forward is:
-1. Add comprehensive pipeline integration tests
-2. Implement selective archive extraction
-3. Complete Settings screen, retention/cleanup worker, and storage profiling
-4. Enhance signing analysis with AOSP apksig cryptographic verification
-5. Prepare for Play Store release
+1. Complete Phase 10 (multi-file split APK intake, case ZIP support)
+2. Add comprehensive fuzzing tests
+3. Native ELF analysis expansion
+4. Prepare for Play Store release
 
 Estimated time to MVP: 2-3 weeks of full-time development.

@@ -29,6 +29,14 @@ fun SimpleReportView(
             FileSummaryCard(report)
         }
         
+        report.archive?.let { archive ->
+            if (archive.suspiciousPaths.isNotEmpty() || archive.encrypted) {
+                item {
+                    ArchiveSummaryCard(archive)
+                }
+            }
+        }
+        
         if (report.findings.isNotEmpty()) {
             item {
                 Text(
@@ -156,6 +164,45 @@ private fun FileSummaryCard(report: AnalysisReport) {
             report.apk?.versionName?.let { InfoRow("Version", it) }
             InfoRow("Size", formatFileSize(report.source.sizeActual))
             InfoRow("SHA-256", report.source.sha256.take(16) + "...")
+        }
+    }
+}
+
+@Composable
+private fun ArchiveSummaryCard(archive: ArchiveReportSection) {
+    val hasWarnings = archive.suspiciousPaths.isNotEmpty() || archive.encrypted
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (hasWarnings) {
+                MaterialTheme.colorScheme.tertiaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            }
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Archive Information",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            InfoRow("Type", archive.archiveType)
+            InfoRow("Entries", archive.entryCount.toString())
+            InfoRow("Encrypted", if (archive.encrypted) "Yes" else "No")
+            
+            if (archive.suspiciousPaths.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "⚠ ${archive.suspiciousPaths.size} suspicious path(s) detected",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
     }
 }

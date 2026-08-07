@@ -10,9 +10,9 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:model"))
     implementation(project(":engine:api"))
-    implementation(project(":engine:archive"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.timber)
+    implementation(libs.apksig)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

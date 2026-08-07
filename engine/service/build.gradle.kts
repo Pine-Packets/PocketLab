@@ -14,6 +14,7 @@ android {
 dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:model"))
+    implementation(project(":core:io"))
     implementation(project(":engine:api"))
     implementation(project(":engine:pipeline"))
     implementation(project(":engine:filetype"))

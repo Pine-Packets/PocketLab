@@ -10,8 +10,10 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:model"))
     implementation(project(":engine:api"))
+    implementation(project(":engine:apk"))
     implementation(libs.commons.compress)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.timber)
 
     testImplementation(libs.junit)

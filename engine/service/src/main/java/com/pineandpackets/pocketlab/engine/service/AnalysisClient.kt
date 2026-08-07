@@ -9,6 +9,7 @@ import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import com.pineandpackets.pocketlab.core.common.AnalysisError
 import com.pineandpackets.pocketlab.core.common.AnalysisLimits
+import com.pineandpackets.pocketlab.core.io.DeviceCapabilityProfiler
 import com.pineandpackets.pocketlab.core.model.AnalysisReport
 import com.pineandpackets.pocketlab.engine.api.AnalysisEngine
 import com.pineandpackets.pocketlab.engine.api.AnalysisProfile
@@ -36,6 +37,7 @@ class AnalysisClient(private val context: Context) : AnalysisEngine {
         encodeDefaults = true
     }
 
+    private val deviceProfiler = DeviceCapabilityProfiler(context)
     private var serviceBinder: IAnalyzerService? = null
     private val connected = AtomicBoolean(false)
     private val connectionLatch = CountDownLatch(1)
@@ -112,6 +114,7 @@ class AnalysisClient(private val context: Context) : AnalysisEngine {
         )
         activeFlows[jobId] = flow
 
+        val deviceCaps = deviceProfiler.profile()
         val isolatedRequest = IsolatedAnalysisRequest(
             jobId = jobId,
             sourceDisplayName = request.sourceDisplayName,
@@ -126,7 +129,7 @@ class AnalysisClient(private val context: Context) : AnalysisEngine {
             deepDexAnalysisEnabled = request.deepDexAnalysisEnabled,
             iocExtractionEnabled = request.iocExtractionEnabled,
             archivePassword = request.archivePassword,
-            maxBytesRead = AnalysisLimits.MAX_INPUT_SIZE_BYTES,
+            maxBytesRead = deviceCaps.maxInputSizeBytes,
             maxObjects = AnalysisLimits.MAX_ARCHIVE_ENTRIES,
             maxStrings = AnalysisLimits.MAX_STRING_COUNT,
             maxMethods = AnalysisLimits.MAX_METHOD_COUNT,

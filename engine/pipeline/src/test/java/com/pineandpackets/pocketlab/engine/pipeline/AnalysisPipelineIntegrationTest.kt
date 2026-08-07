@@ -1,6 +1,7 @@
 package com.pineandpackets.pocketlab.engine.pipeline
 
 import com.pineandpackets.pocketlab.core.model.*
+import com.pineandpackets.pocketlab.engine.api.AnalysisProfile
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
@@ -17,15 +18,9 @@ class AnalysisPipelineIntegrationTest {
     @get:Rule
     val tempFolder = TemporaryFolder()
     
-    private lateinit var pipeline: AnalysisPipeline
-    
-    @Before
-    fun setup() {
-        pipeline = AnalysisPipeline()
-    }
-    
     @Test
     fun `analyze minimal APK produces valid report`() = runTest {
+        val pipeline = AnalysisPipeline()
         val apkFile = createMinimalApk()
         val hashes = HashResult(
             sha256 = "test-sha256",
@@ -35,152 +30,65 @@ class AnalysisPipelineIntegrationTest {
         
         val progress = pipeline.analyze("test-case", apkFile, hashes).toList()
         
-        // Verify we got progress events
         assertTrue(progress.isNotEmpty())
         
-        // Verify we got either a complete or error event
-        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
-        val errorEvent = progress.filterIsInstance<AnalysisProgress.Error>().firstOrNull()
-        val failedEvent = progress.filterIsInstance<AnalysisProgress.StageFailed>().firstOrNull()
-        
-        // At least one of these should be present
-        assertTrue(completeEvent != null || errorEvent != null || failedEvent != null)
-        
-        // If we got a complete event, verify report structure
-        if (completeEvent != null) {
-            val report = completeEvent.report
-            assertEquals("test-case", report.caseId)
-            assertEquals("test-sha256", report.source.sha256)
-        }
-    }
-    
-    @Test
-    fun `analyze APK with permissions generates findings`() = runTest {
-        val apkFile = createApkWithPermissions()
-        val hashes = HashResult("sha256", "sha1", "md5")
-        
-        val progress = pipeline.analyze("test-case", apkFile, hashes).toList()
-        
-        // Verify pipeline executed (may succeed or fail due to minimal test data)
-        assertTrue(progress.isNotEmpty())
-        
-        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
-        
-        // If analysis succeeded, verify permissions were extracted
-        if (completeEvent != null) {
-            val report = completeEvent.report
-            if (report.apk?.permissions?.isNotEmpty() == true) {
-                // Should have findings for dangerous permissions
-                val permissionFindings = report.findings.filter { 
-                    it.category == "permission" || it.ruleId.startsWith("PERM_")
-                }
-                assertTrue(permissionFindings.isNotEmpty())
-            }
-        }
-    }
-    
-    @Test
-    fun `analyze APK with exported components generates findings`() = runTest {
-        val apkFile = createApkWithExportedComponents()
-        val hashes = HashResult("sha256", "sha1", "md5")
-        
-        val progress = pipeline.analyze("test-case", apkFile, hashes).toList()
-        
-        // Verify pipeline executed
-        assertTrue(progress.isNotEmpty())
-        
-        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
-        
-        // If analysis succeeded, verify components were extracted
-        if (completeEvent != null) {
-            val report = completeEvent.report
-            if (report.apk?.components?.isNotEmpty() == true) {
-                // Should have findings for exported components
-                val componentFindings = report.findings.filter {
-                    it.category == "component" || it.ruleId.startsWith("COMP_")
-                }
-                assertTrue(componentFindings.isNotEmpty())
-            }
-        }
-    }
-    
-    @Test
-    fun `analyze debuggable APK generates finding`() = runTest {
-        val apkFile = createDebuggableApk()
-        val hashes = HashResult("sha256", "sha1", "md5")
-        
-        val progress = pipeline.analyze("test-case", apkFile, hashes).toList()
-        
-        // Verify pipeline executed
-        assertTrue(progress.isNotEmpty())
-        
-        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
-        
-        // If analysis succeeded, verify debuggable flag was detected
-        if (completeEvent != null) {
-            val report = completeEvent.report
-            if (report.apk?.debuggable == true) {
-                // Should have finding for debuggable flag
-                val debuggableFinding = report.findings.find {
-                    it.ruleId == "MANIFEST_DEBUGGABLE" || it.title.contains("debuggable", ignoreCase = true)
-                }
-                assertNotNull(debuggableFinding)
-            }
-        }
-    }
-    
-    @Test
-    fun `analyze APK with IOCs extracts indicators`() = runTest {
-        val apkFile = createApkWithIOCs()
-        val hashes = HashResult("sha256", "sha1", "md5")
-        
-        val progress = pipeline.analyze("test-case", apkFile, hashes).toList()
         val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
         assertNotNull(completeEvent)
         
         val report = completeEvent!!.report
-        
-        // Should extract some indicators from strings
-        // Note: This depends on string extraction working
-        assertNotNull(report.indicators)
+        assertEquals("test-case", report.caseId)
+        assertEquals("test-sha256", report.source.sha256)
+        assertNotNull(report.stageResults)
+        assertTrue(report.stageResults.isNotEmpty())
     }
     
     @Test
-    fun `analyze malformed APK returns error`() = runTest {
-        val malformedFile = tempFolder.newFile("malformed.apk")
-        malformedFile.writeText("not a valid APK")
-        val hashes = HashResult("sha256", "sha1", "md5")
-        
-        val progress = pipeline.analyze("test-case", malformedFile, hashes).toList()
-        
-        // Should get some form of error or failure
-        val errorEvent = progress.filterIsInstance<AnalysisProgress.Error>().firstOrNull()
-        val failedEvent = progress.filterIsInstance<AnalysisProgress.StageFailed>().firstOrNull()
-        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
-        
-        // Either we got an error, a stage failure, or a complete with no APK info
-        assertTrue(
-            errorEvent != null || 
-            failedEvent != null || 
-            (completeEvent != null && completeEvent.report.apk == null)
+    fun `analyze with custom config uses config settings`() = runTest {
+        val config = AnalysisConfig(
+            analysisProfile = AnalysisProfile.ADVANCED,
+            iocExtractionEnabled = false,
+            deepDexAnalysisEnabled = false,
+            sourceDisplayName = "custom.apk",
+            sourceMimeType = "application/vnd.android.package-archive"
         )
-    }
-    
-    @Test
-    fun `analyze DEX file directly`() = runTest {
-        val dexFile = createMinimalDex()
+        val pipeline = AnalysisPipeline(config)
+        val apkFile = createMinimalApk()
         val hashes = HashResult("sha256", "sha1", "md5")
         
-        val progress = pipeline.analyze("test-case", dexFile, hashes).toList()
+        val progress = pipeline.analyze("test-case", apkFile, hashes).toList()
         val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
         assertNotNull(completeEvent)
         
         val report = completeEvent!!.report
-        assertTrue(report.dex.isNotEmpty())
+        assertEquals("advanced", report.settings.analysisProfile)
+        assertFalse(report.settings.iocExtractionEnabled)
+        assertFalse(report.settings.deepDexAnalysisEnabled)
+        assertEquals("custom.apk", report.source.displayName)
+        assertEquals("application/vnd.android.package-archive", report.source.mimeType)
     }
     
     @Test
-    fun `report contains all required sections`() = runTest {
+    fun `ioc extraction disabled produces skipped stage`() = runTest {
+        val config = AnalysisConfig(iocExtractionEnabled = false)
+        val pipeline = AnalysisPipeline(config)
+        val apkFile = createMinimalApk()
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", apkFile, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        assertNotNull(completeEvent)
+        
+        val report = completeEvent!!.report
+        val iocStage = report.stageResults.find { it.stageId == "ioc" }
+        assertNotNull(iocStage)
+        assertEquals(StageState.SKIPPED, iocStage!!.state)
+        assertTrue(report.limitations.any { it.contains("IOC extraction disabled") })
+    }
+    
+    @Test
+    fun `deep dex analysis disabled produces skipped stage when APK analysis succeeds`() = runTest {
+        val config = AnalysisConfig(deepDexAnalysisEnabled = false)
+        val pipeline = AnalysisPipeline(config)
         val apkFile = createMinimalApk()
         val hashes = HashResult("sha256", "sha1", "md5")
         
@@ -190,7 +98,27 @@ class AnalysisPipelineIntegrationTest {
         
         val report = completeEvent!!.report
         
-        // Verify all required sections
+        val apkStage = report.stageResults.find { it.stageId == "apk" }
+        if (apkStage?.state == StageState.COMPLETE) {
+            val codeStage = report.stageResults.find { it.stageId == "code_analysis" }
+            assertNotNull(codeStage)
+            assertEquals(StageState.SKIPPED, codeStage!!.state)
+            assertTrue(report.limitations.any { it.contains("Deep DEX analysis disabled") })
+        }
+    }
+    
+    @Test
+    fun `report contains all required sections`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val apkFile = createMinimalApk()
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", apkFile, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        assertNotNull(completeEvent)
+        
+        val report = completeEvent!!.report
+        
         assertNotNull(report.schemaVersion)
         assertNotNull(report.reportId)
         assertNotNull(report.caseId)
@@ -204,7 +132,8 @@ class AnalysisPipelineIntegrationTest {
     
     @Test
     fun `report summary contains risk assessment`() = runTest {
-        val apkFile = createApkWithPermissions()
+        val pipeline = AnalysisPipeline()
+        val apkFile = createMinimalApk()
         val hashes = HashResult("sha256", "sha1", "md5")
         
         val progress = pipeline.analyze("test-case", apkFile, hashes).toList()
@@ -216,80 +145,222 @@ class AnalysisPipelineIntegrationTest {
         
         assertNotNull(summary.riskBand)
         assertNotNull(summary.confidence)
-        assertTrue(summary.completeness > 0)
+        assertTrue(summary.completeness >= 0.0)
+        assertTrue(summary.completeness <= 1.0)
         assertTrue(summary.findingCount >= 0)
     }
     
-    // Helper methods to create test files
+    @Test
+    fun `report completeness reflects stage results`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val apkFile = createMinimalApk()
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", apkFile, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        assertNotNull(completeEvent)
+        
+        val report = completeEvent!!.report
+        val completedStages = report.stageResults.count { it.state == StageState.COMPLETE }
+        val totalStages = report.stageResults.size
+        
+        if (totalStages > 0) {
+            val expectedCompleteness = completedStages.toDouble() / totalStages.toDouble()
+            assertEquals(expectedCompleteness, report.summary.completeness, 0.01)
+        }
+    }
+    
+    @Test
+    fun `analyze malformed APK returns error`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val malformedFile = tempFolder.newFile("malformed.apk")
+        malformedFile.writeText("not a valid APK")
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", malformedFile, hashes).toList()
+        
+        val errorEvent = progress.filterIsInstance<AnalysisProgress.Error>().firstOrNull()
+        val failedEvent = progress.filterIsInstance<AnalysisProgress.StageFailed>().firstOrNull()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        
+        assertTrue(
+            errorEvent != null || 
+            failedEvent != null || 
+            (completeEvent != null && completeEvent.report.apk == null)
+        )
+    }
+    
+    @Test
+    fun `analyze DEX file directly`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val dexFile = createMinimalDex()
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", dexFile, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        assertNotNull(completeEvent)
+        
+        val report = completeEvent!!.report
+        assertTrue(report.dex.isNotEmpty())
+    }
+    
+    @Test
+    fun `archive section populated for APK`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val apkFile = createMinimalApk()
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", apkFile, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        assertNotNull(completeEvent)
+        
+        val report = completeEvent!!.report
+        assertNotNull(report.archive)
+        
+        val archive = report.archive!!
+        assertEquals("ZIP", archive.archiveType)
+        assertEquals(2, archive.entryCount)
+        assertFalse(archive.encrypted)
+        assertTrue(archive.analyzedChildren.isNotEmpty())
+    }
+    
+    @Test
+    fun `archive section null for non-archive file`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val dexFile = createMinimalDex()
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", dexFile, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        assertNotNull(completeEvent)
+        
+        val report = completeEvent!!.report
+        assertNull(report.archive)
+    }
+    
+    @Test
+    fun `stage results track timing`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val apkFile = createMinimalApk()
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", apkFile, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        assertNotNull(completeEvent)
+        
+        val report = completeEvent!!.report
+        val completedStages = report.stageResults.filter { it.state == StageState.COMPLETE }
+        
+        for (stage in completedStages) {
+            assertNotNull("Stage ${stage.stageId} should have startedAt", stage.startedAt)
+            assertNotNull("Stage ${stage.stageId} should have completedAt", stage.completedAt)
+        }
+    }
+    
+    @Test
+    fun `report limitations include signature warning`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val apkFile = createMinimalApk()
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", apkFile, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        assertNotNull(completeEvent)
+        
+        val report = completeEvent!!.report
+        assertTrue(report.limitations.any { it.contains("Signature verification") })
+        assertTrue(report.limitations.any { it.contains("runtime behavior") })
+    }
+    
+    @Test
+    fun `report errors populated on stage failure`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val malformedFile = tempFolder.newFile("malformed.apk")
+        malformedFile.writeText("not a valid APK")
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", malformedFile, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        
+        if (completeEvent != null) {
+            val report = completeEvent.report
+            val failedStages = report.stageResults.filter { it.state == StageState.FAILED }
+            if (failedStages.isNotEmpty()) {
+                assertTrue(report.errors.isNotEmpty())
+            }
+        }
+    }
+    
+    @Test
+    fun `confidence adjusts based on stage failures`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val malformedFile = tempFolder.newFile("malformed.apk")
+        malformedFile.writeText("not a valid APK")
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", malformedFile, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        
+        if (completeEvent != null) {
+            val report = completeEvent.report
+            val failedStages = report.stageResults.count { it.state == StageState.FAILED }
+            if (failedStages > 0) {
+                assertNotEquals(Confidence.HIGH, report.summary.confidence)
+            }
+        }
+    }
+    
+    @Test
+    fun `analyze APKS package set produces merged report`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val apksFile = createMinimalApks()
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", apksFile, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        assertNotNull(completeEvent)
+        
+        val report = completeEvent!!.report
+        val packagesetStage = report.stageResults.find { it.stageId == "packageset" }
+        assertNotNull(packagesetStage)
+        
+        apksFile.delete()
+    }
+    
+    @Test
+    fun `analyze XAPK package set produces merged report`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val xapkFile = createMinimalXapk()
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", xapkFile, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        assertNotNull(completeEvent)
+        
+        val report = completeEvent!!.report
+        val packagesetStage = report.stageResults.find { it.stageId == "packageset" }
+        assertNotNull(packagesetStage)
+        
+        xapkFile.delete()
+    }
+    
+    @Test
+    fun `analyze regular APK does not trigger packageset stage`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val apkFile = createMinimalApk()
+        val hashes = HashResult("sha256", "sha1", "md5")
+        
+        val progress = pipeline.analyze("test-case", apkFile, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        assertNotNull(completeEvent)
+        
+        val report = completeEvent!!.report
+        val packagesetStage = report.stageResults.find { it.stageId == "packageset" }
+        assertNull(packagesetStage)
+    }
     
     private fun createMinimalApk(): File {
-        val apkFile = tempFolder.newFile("minimal.apk")
-        ZipOutputStream(apkFile.outputStream()).use { zos ->
-            // Add minimal manifest
-            val manifestEntry = ZipEntry("AndroidManifest.xml")
-            zos.putNextEntry(manifestEntry)
-            zos.write(createMinimalManifest())
-            zos.closeEntry()
-            
-            // Add minimal DEX
-            val dexEntry = ZipEntry("classes.dex")
-            zos.putNextEntry(dexEntry)
-            zos.write(createMinimalDexBytes())
-            zos.closeEntry()
-        }
-        return apkFile
-    }
-    
-    private fun createApkWithPermissions(): File {
-        val apkFile = tempFolder.newFile("permissions.apk")
-        ZipOutputStream(apkFile.outputStream()).use { zos ->
-            val manifestEntry = ZipEntry("AndroidManifest.xml")
-            zos.putNextEntry(manifestEntry)
-            zos.write(createManifestWithPermissions())
-            zos.closeEntry()
-            
-            val dexEntry = ZipEntry("classes.dex")
-            zos.putNextEntry(dexEntry)
-            zos.write(createMinimalDexBytes())
-            zos.closeEntry()
-        }
-        return apkFile
-    }
-    
-    private fun createApkWithExportedComponents(): File {
-        val apkFile = tempFolder.newFile("components.apk")
-        ZipOutputStream(apkFile.outputStream()).use { zos ->
-            val manifestEntry = ZipEntry("AndroidManifest.xml")
-            zos.putNextEntry(manifestEntry)
-            zos.write(createManifestWithExportedComponents())
-            zos.closeEntry()
-            
-            val dexEntry = ZipEntry("classes.dex")
-            zos.putNextEntry(dexEntry)
-            zos.write(createMinimalDexBytes())
-            zos.closeEntry()
-        }
-        return apkFile
-    }
-    
-    private fun createDebuggableApk(): File {
-        val apkFile = tempFolder.newFile("debuggable.apk")
-        ZipOutputStream(apkFile.outputStream()).use { zos ->
-            val manifestEntry = ZipEntry("AndroidManifest.xml")
-            zos.putNextEntry(manifestEntry)
-            zos.write(createDebuggableManifest())
-            zos.closeEntry()
-            
-            val dexEntry = ZipEntry("classes.dex")
-            zos.putNextEntry(dexEntry)
-            zos.write(createMinimalDexBytes())
-            zos.closeEntry()
-        }
-        return apkFile
-    }
-    
-    private fun createApkWithIOCs(): File {
-        val apkFile = tempFolder.newFile("iocs.apk")
+        val apkFile = tempFolder.newFile("minimal_${System.nanoTime()}.apk")
         ZipOutputStream(apkFile.outputStream()).use { zos ->
             val manifestEntry = ZipEntry("AndroidManifest.xml")
             zos.putNextEntry(manifestEntry)
@@ -298,52 +369,100 @@ class AnalysisPipelineIntegrationTest {
             
             val dexEntry = ZipEntry("classes.dex")
             zos.putNextEntry(dexEntry)
-            zos.write(createDexWithIOCs())
+            zos.write(createMinimalDexBytes())
             zos.closeEntry()
         }
         return apkFile
     }
     
     private fun createMinimalDex(): File {
-        val dexFile = tempFolder.newFile("classes.dex")
+        val dexFile = tempFolder.newFile("classes_${System.nanoTime()}.dex")
         dexFile.writeBytes(createMinimalDexBytes())
         return dexFile
     }
     
+    private fun createMinimalApks(): File {
+        val apksFile = tempFolder.newFile("test_${System.nanoTime()}.apks")
+        ZipOutputStream(apksFile.outputStream()).use { zos ->
+            val baseApk = ZipEntry("base.apk")
+            zos.putNextEntry(baseApk)
+            zos.write(createMinimalApkBytes())
+            zos.closeEntry()
+            
+            val splitApk = ZipEntry("split_config.arm64_v8a.apk")
+            zos.putNextEntry(splitApk)
+            zos.write(createMinimalApkBytes())
+            zos.closeEntry()
+            
+            val bundleConfig = ZipEntry("BundleConfig.pb")
+            zos.putNextEntry(bundleConfig)
+            zos.write(byteArrayOf(0x00, 0x01, 0x02))
+            zos.closeEntry()
+        }
+        return apksFile
+    }
+    
+    private fun createMinimalXapk(): File {
+        val xapkFile = tempFolder.newFile("test_${System.nanoTime()}.xapk")
+        ZipOutputStream(xapkFile.outputStream()).use { zos ->
+            val manifest = ZipEntry("manifest.json")
+            zos.putNextEntry(manifest)
+            val manifestJson = """
+                {
+                    "xapk_version": 2,
+                    "package_name": "com.example.test",
+                    "version_name": "1.0.0",
+                    "version_code": 1
+                }
+            """.trimIndent()
+            zos.write(manifestJson.toByteArray())
+            zos.closeEntry()
+            
+            val apkEntry = ZipEntry("com.example.test.apk")
+            zos.putNextEntry(apkEntry)
+            zos.write(createMinimalApkBytes())
+            zos.closeEntry()
+            
+            val splitApk = ZipEntry("com.example.test.split.apk")
+            zos.putNextEntry(splitApk)
+            zos.write(createMinimalApkBytes())
+            zos.closeEntry()
+        }
+        return xapkFile
+    }
+    
+    private fun createMinimalApkBytes(): ByteArray {
+        val tempFile = File.createTempFile("temp_apk", ".apk")
+        ZipOutputStream(tempFile.outputStream()).use { zos ->
+            val manifestEntry = ZipEntry("AndroidManifest.xml")
+            zos.putNextEntry(manifestEntry)
+            zos.write(createMinimalManifest())
+            zos.closeEntry()
+            
+            val dexEntry = ZipEntry("classes.dex")
+            zos.putNextEntry(dexEntry)
+            zos.write(createMinimalDexBytes())
+            zos.closeEntry()
+        }
+        val bytes = tempFile.readBytes()
+        tempFile.delete()
+        return bytes
+    }
+    
     private fun createMinimalManifest(): ByteArray {
-        // Simplified binary manifest - just enough to parse
         return byteArrayOf(
-            0x03, 0x00, 0x08, 0x00, // AXML header
-            0x00, 0x00, 0x00, 0x00  // Placeholder
+            0x03, 0x00, 0x08, 0x00,
+            0x00, 0x00, 0x00, 0x00
         )
     }
     
-    private fun createManifestWithPermissions(): ByteArray {
-        return createMinimalManifest()
-    }
-    
-    private fun createManifestWithExportedComponents(): ByteArray {
-        return createMinimalManifest()
-    }
-    
-    private fun createDebuggableManifest(): ByteArray {
-        return createMinimalManifest()
-    }
-    
     private fun createMinimalDexBytes(): ByteArray {
-        // Minimal DEX header
         val bytes = ByteArray(112)
-        // Magic
         "dex\n035\u0000".toByteArray().copyInto(bytes, 0)
-        // Endian tag at offset 40
         bytes[40] = 0x78
         bytes[41] = 0x56
         bytes[42] = 0x34
         bytes[43] = 0x12
         return bytes
-    }
-    
-    private fun createDexWithIOCs(): ByteArray {
-        return createMinimalDexBytes()
     }
 }

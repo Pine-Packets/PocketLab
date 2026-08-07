@@ -2,6 +2,7 @@ package com.pineandpackets.pocketlab.core.io
 
 import android.content.Context
 import android.net.Uri
+import android.os.StatFs
 import com.pineandpackets.pocketlab.core.common.AnalysisError
 import com.pineandpackets.pocketlab.core.common.AnalysisLimits
 import com.pineandpackets.pocketlab.core.common.HashUtils
@@ -26,6 +27,7 @@ class FileStager(
     private val workspace: CaseWorkspace
 ) {
     private val contentResolver = context.contentResolver
+    private val noBackupDir = context.noBackupFilesDir
     
     suspend fun stageFile(
         uri: Uri,
@@ -34,6 +36,15 @@ class FileStager(
         computeMd5: Boolean = true
     ): Result<StagingResult> = withContext(Dispatchers.IO) {
         try {
+            val storageCheck = checkAvailableStorage()
+            if (storageCheck.isFailure) {
+                val error = storageCheck.exceptionOrNull()
+                return@withContext Result.failure(
+                    if (error is AnalysisError) error
+                    else AnalysisError.IntakeError("Insufficient storage space")
+                )
+            }
+
             val outputFile = workspace.getOriginalFile(caseId)
             
             val inputStream = contentResolver.openInputStream(uri)
@@ -95,6 +106,30 @@ class FileStager(
             Timber.e(e, "Failed to stage file for case $caseId")
             workspace.getOriginalFile(caseId).delete()
             Result.failure(AnalysisError.IntakeError("Failed to stage file", e))
+        }
+    }
+
+    fun checkAvailableStorage(): Result<Unit> {
+        return try {
+            val statFs = StatFs(noBackupDir.absolutePath)
+            val availableBytes = statFs.availableBlocksLong * statFs.blockSizeLong
+            val minRequiredBytes = 200L * 1024 * 1024
+
+            if (availableBytes < minRequiredBytes) {
+                Timber.w("Insufficient storage: ${availableBytes / (1024 * 1024)}MB available, " +
+                    "${minRequiredBytes / (1024 * 1024)}MB required")
+                return Result.failure(
+                    AnalysisError.IntakeError(
+                        "Insufficient storage space. Available: ${availableBytes / (1024 * 1024)}MB, " +
+                        "Required: ${minRequiredBytes / (1024 * 1024)}MB"
+                    )
+                )
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to check available storage, proceeding cautiously")
+            Result.success(Unit)
         }
     }
     

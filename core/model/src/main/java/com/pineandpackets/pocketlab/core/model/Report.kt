@@ -14,6 +14,7 @@ data class AnalysisReport(
     val settings: AnalysisSettings,
     val source: SourceInfo,
     val containers: List<ContainerInfo> = emptyList(),
+    val archive: ArchiveReportSection? = null,
     val files: List<FileInfo> = emptyList(),
     val apk: ApkInfo? = null,
     val dex: List<DexInfo> = emptyList(),
@@ -147,7 +148,18 @@ data class SigningInfo(
     val signatureSchemes: List<String>,
     val verified: Boolean,
     val signerCount: Int,
-    val certificates: List<CertificateInfo>
+    val certificates: List<CertificateInfo>,
+    val signingLineage: List<SigningLineageEntry> = emptyList(),
+    val hasLineage: Boolean = false
+)
+
+@Serializable
+data class SigningLineageEntry(
+    val index: Int,
+    val certificate: CertificateInfo,
+    val rotationTarget: String?,
+    val isCurrentSigner: Boolean,
+    val proofOfRotation: String?
 )
 
 @Serializable
@@ -359,3 +371,47 @@ data class RedactionSettings(
     val includeAnalystNotes: Boolean = false,
     val maxStringLength: Int = 500
 )
+
+@Serializable
+data class ArchiveReportSection(
+    val archiveType: String,
+    val encrypted: Boolean,
+    val entryCount: Int,
+    val declaredCompressedSize: Long,
+    val declaredExpandedSize: Long,
+    val observedExpandedSize: Long,
+    val maxObservedRatio: Double,
+    val nestedDepth: Int,
+    val suspiciousPaths: List<String>,
+    val duplicateEntries: List<String>,
+    val unsupportedEntries: List<String>,
+    val analyzedChildren: List<ArchiveChildEntry>,
+    val skippedChildren: List<ArchiveSkippedEntry>,
+    val quotaEvents: List<String>,
+    val integrityStatus: ArchiveIntegrityStatus
+)
+
+@Serializable
+data class ArchiveChildEntry(
+    val path: String,
+    val compressedSize: Long,
+    val expandedSize: Long,
+    val detectedType: String?,
+    val sha256: String?,
+    val status: String,
+    val parentContainerId: String?
+)
+
+@Serializable
+data class ArchiveSkippedEntry(
+    val path: String,
+    val reason: String
+)
+
+@Serializable
+enum class ArchiveIntegrityStatus {
+    VALID,
+    VALID_WITH_WARNINGS,
+    MALFORMED,
+    PARTIAL
+}

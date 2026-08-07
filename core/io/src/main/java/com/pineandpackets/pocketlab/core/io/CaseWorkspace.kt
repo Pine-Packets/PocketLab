@@ -11,10 +11,20 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.security.MessageDigest
 
-class CaseWorkspace(context: Context) {
-    
-    private val casesDir = File(context.noBackupFilesDir, "cases").apply {
-        if (!exists()) mkdirs()
+class CaseWorkspace {
+
+    private val casesDir: File
+
+    constructor(context: Context) {
+        casesDir = File(context.noBackupFilesDir, "cases").apply {
+            if (!exists()) mkdirs()
+        }
+    }
+
+    constructor(baseDir: File) {
+        casesDir = File(baseDir, "cases").apply {
+            if (!exists()) mkdirs()
+        }
     }
     
     fun getCaseDir(caseId: String): File {

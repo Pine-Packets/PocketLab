@@ -186,8 +186,17 @@ class SelectiveExtractor {
 
     private fun detectFileType(file: File): String? {
         return try {
-            val header = file.inputStream().use { it.readNBytes(8) }
-            if (header.size < 4) return null
+            val header = ByteArray(8)
+            val read = file.inputStream().use { input ->
+                var offset = 0
+                while (offset < header.size) {
+                    val n = input.read(header, offset, header.size - offset)
+                    if (n == -1) break
+                    offset += n
+                }
+                offset
+            }
+            if (read < 4) return null
             when {
                 header[0] == 0x50.toByte() && header[1] == 0x4B.toByte() -> "ZIP"
                 header[0] == 0x64.toByte() && header[1] == 0x65.toByte() &&

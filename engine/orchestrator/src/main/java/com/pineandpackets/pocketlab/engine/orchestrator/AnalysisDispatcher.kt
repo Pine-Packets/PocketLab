@@ -304,8 +304,7 @@ private class SourceArtifactRef(
     override val detectedSubtype: String? get() = detected.subtype
     override val sizeBytes: Long get() = source.sizeBytes
 
-    fun readNBytes(count: Int): ByteArray = source.readNBytes(count)
-    fun readRange(offset: Long, count: Int): ByteArray = source.readRange(offset, count)
+    override fun readNBytes(count: Int): ByteArray = source.readNBytes(count)
+    override fun readRange(offset: Long, count: Int): ByteArray = source.readRange(offset, count)
     fun computeSha256(): String? = source.computeSha256()
-    override fun toString(): String = "ArtifactRef($artifactId, $name)"
 }

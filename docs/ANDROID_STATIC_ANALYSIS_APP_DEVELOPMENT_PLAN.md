@@ -3772,11 +3772,19 @@ verification → no-execution verification → report/UI → docs → status upd
 
 Stage order (from `docs/AUTHORITATIVE_EXISTING_MATERIAL.md`), implemented one at a time:
 
-### Phase 15.1 — PDF (Stage 1)
+### Phase 15.1 — PDF (Stage 1) ✅ IMPLEMENTED (`:engine:pdf`)
 `.pdf` — version, object counts, xref/trailer, object streams, encryption, signatures, metadata, page
 count, embedded files, JavaScript, OpenAction/AA, Launch/URI actions, AcroForms, XFA, annotations,
 RichMedia, remote resources, images, URLs/domains/IP/email indicators, structural abnormalities.
-Never execute JS or follow URLs. Malformed fixtures + fuzz/property tests.
+Never execute JS or follow URLs. Malformed fuzz tests.
+
+Status note: `:engine:pdf` `PdfScanner`/`PdfAnalyzer` (analyzer id `pdf.analyzer` v1.0.0) reads a bounded
+16 MiB Latin-1 window to detect header, `%%EOF`, `/JavaScript`/`/JS`, `/OpenAction`, `/Launch`,
+`/AcroForm`, `/XFA`, `/EmbeddedFiles`/`/Filespec`, annotations, `/RichMedia`, `/URI`/`/GoToR`,
+`/Encrypt`, `/Metadata`, and signature tokens, and extracts defanged URL indicators. Never decodes/executes
+JS, never extracts embedded files, never contacts URIs. Registered in `AnalyzerOrchestrator.analyzerRegistry()`.
+Incomplete on truncation/parser-error (never false-clean). Extracted parse currently skips full object-tree
+graph reconstruction, page count, and font/image enumeration (future scope).
 
 ### Phase 15.2 — OOXML (Stage 2)
 `.docx/.docm/.dotx/.dotm`, `.xlsx/.xlsm/.xlsb/.xltx/.xltm/.xlam`,

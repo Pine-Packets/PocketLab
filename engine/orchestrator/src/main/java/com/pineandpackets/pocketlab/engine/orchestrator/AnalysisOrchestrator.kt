@@ -9,6 +9,8 @@ import com.pineandpackets.pocketlab.engine.api.AnalysisRequest
 import com.pineandpackets.pocketlab.engine.api.EngineInfo
 import com.pineandpackets.pocketlab.engine.api.AnalysisProgress
 import com.pineandpackets.pocketlab.engine.api.CaseBudget
+import com.pineandpackets.pocketlab.engine.api.ArtifactAnalyzer
+import com.pineandpackets.pocketlab.engine.pdf.PdfAnalyzer
 import com.pineandpackets.pocketlab.engine.pipeline.AnalysisConfig
 import com.pineandpackets.pocketlab.engine.pipeline.AnalysisPipeline
 import com.pineandpackets.pocketlab.engine.pipeline.HashResult
@@ -51,10 +53,6 @@ class AnalysisOrchestrator(
 
         val cancellation = AnalysisCancellation()
         cancellations[request.jobId] = cancellation
-        val dispatcher = AnalysisDispatcher(
-            detect = LayeredTypeDetector::detect,
-            analyzers = emptyList(),
-        )
 
         return pipeline.analyze(request.jobId, inputFile, hashes, request.archivePassword).map { progress ->
             when (progress) {
@@ -134,7 +132,7 @@ class AnalysisOrchestrator(
         val source = FileArtifactSource(inputFile, cancellation)
         return AnalysisDispatcher(
             detect = LayeredTypeDetector::detect,
-            analyzers = emptyList(),
+            analyzers = analyzerRegistry(),
         ).analyzeRoot(
             source = source,
             budget = budget,
@@ -143,6 +141,15 @@ class AnalysisOrchestrator(
             maxNestingDepth = 2,
         )
     }
+
+    /**
+     * The compiled-in analyzer registry. New format stages add their
+     * [ArtifactAnalyzer] here. Analyzers are pure engine code (no Android
+     * framework types), so the same registry runs in-process and isolated.
+     */
+    private fun analyzerRegistry(): List<ArtifactAnalyzer> = listOf(
+        PdfAnalyzer(),
+    )
 
     private fun calculateHash(file: File, algorithm: String): String {
         val digest = java.security.MessageDigest.getInstance(algorithm)

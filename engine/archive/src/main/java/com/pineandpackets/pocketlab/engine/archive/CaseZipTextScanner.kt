@@ -40,7 +40,7 @@ class CaseZipTextScanner(
 
                     val text = try {
                         zip.getInputStream(entry).use { input ->
-                            input.readNBytes(entry.size.toInt()).toString(Charsets.UTF_8)
+                            readBoundedUtf8(input, entry.size.toInt())
                         }
                     } catch (e: Exception) {
                         Timber.w(e, "Failed to read text entry ${entry.name}")
@@ -86,5 +86,22 @@ class CaseZipTextScanner(
         private const val MAX_SCAN_ENTRIES = 50
         private const val MAX_PER_ENTRY_BYTES = 1024L * 1024L
         private const val MAX_TOTAL_SCAN_BYTES = 8L * 1024L * 1024L
+
+        /**
+         * Reads at most [declaredSize] bytes of UTF-8 text using an API 29
+         * compatible loop. Never trusts the declared size beyond the calling
+         * per-entry quota (already capped at [MAX_PER_ENTRY_BYTES]).
+         */
+        private fun readBoundedUtf8(input: java.io.InputStream, declaredSize: Int): String {
+            val max = declaredSize.coerceAtMost(MAX_PER_ENTRY_BYTES.toInt())
+            val buffer = ByteArray(max)
+            var offset = 0
+            while (offset < max) {
+                val read = input.read(buffer, offset, max - offset)
+                if (read == -1) break
+                offset += read
+            }
+            return String(buffer, 0, offset, Charsets.UTF_8)
+        }
     }
 }

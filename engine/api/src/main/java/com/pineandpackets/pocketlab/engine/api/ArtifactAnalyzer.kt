@@ -47,8 +47,10 @@ interface ArtifactAnalyzer {
 
 /**
  * A minimal read-only view of the artifact bytes plus its detection metadata,
- * passed to analyzers. Bound reads through [readAll] and [readNBytes], which
- * consult the shared budget before consuming.
+ * passed to analyzers. Bound reads through [readNBytes] and [readRange], which
+ * consult the shared budget before consuming. Implementations never return more
+ * than the requested [count] and return an empty array when the read would
+ * exceed budget or be invalid.
  */
 interface ArtifactRef {
     val artifactId: String
@@ -57,6 +59,12 @@ interface ArtifactRef {
     val detectedType: DetectedType
     val detectedSubtype: String?
     val sizeBytes: Long
+
+    /** Read the first [count] bytes (bounded; empty when budget exceeded). */
+    fun readNBytes(count: Int): ByteArray
+
+    /** Read [count] bytes starting at [offset] (bounded; empty when invalid). */
+    fun readRange(offset: Long, count: Int): ByteArray
 }
 
 /** Structured, bounded output produced by a single analyzer run. */

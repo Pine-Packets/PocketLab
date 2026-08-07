@@ -40,6 +40,7 @@ include(":engine:dex")
 include(":engine:native")
 include(":engine:ioc")
 include(":engine:rules")
+include(":engine:pdf")
 
 include(":feature:onboarding")
 include(":feature:home")

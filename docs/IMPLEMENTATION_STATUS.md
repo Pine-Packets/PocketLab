@@ -246,7 +246,7 @@ XML and resource-table parsers.
 - ✅ ArchiveAnalyzerFuzzTest (random ZIP bytes plus byte-flip/truncation mutants of a valid ZIP through ZipValidator preflight and enumeration)
 
 ### Test Results
-- **Total Tests:** 290 test cases
+- **Total Tests:** 302 test cases
 - **Status:** All passing
 - **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation, split APK set construction, raw-APK and case-archive pipeline dispatch, multi-file intake staging orchestration, case ZIP notes/text inventory, analysis view-model state orchestration, property-based archive path safety, property-based IOC extraction invariants, native ELF symbol/dependency/JNI/segment analysis, comprehensive deterministic fuzzing of file-type, binary XML, resource table, DEX, ELF, and report renderer boundaries
 - **Missing:** Archive UI tests, signed APK fixtures for apksig
@@ -326,11 +326,13 @@ XML and resource-table parsers.
 ## Next Steps
 
 ### Immediate (Next)
-1. Expand the physical test corpus and instrumentation coverage (process isolation, cancellation, export surface)
-2. Play Store release preparation
+1. Finish Stage 15.1 (PDF): add `PdfScanner` fuzz/property target, `jshell`/JVM fuzz harness, complete `docs/FILE_FORMAT_EXPANSION_REVIEW.md` Stage-1 acceptance note, then commit the Stage-15.1 checkpoint
+2. Begin Stage 15.2 (OOXML): reuse hardened ZIP scanning to inventory `.docx/.xlsm/.pptm` content types, relationships, macros, external links/hyperlinks
 
 ### Short-term
-1. Play Store release preparation
+1. Continue Phase 15 format stages (15.1 → 15.17), one analyzer per stage in `analyzerRegistry()`
+2. Expand physical test corpus and instrumentation coverage (process isolation, cancellation, export surface)
+3. Play Store release preparation
 
 ### Long-term
 1. Advanced code analysis (streaming analysis, data flow)
@@ -412,7 +414,18 @@ the expansion task requires maintaining it; `AGENTS.md` was also re-pointed at i
 - ✅ 14 new tests: `AnalysisDispatcherTest` (routing, polyglot fan-out, recursive child dispatch, nesting-depth bound, analyzer crash, cancellation, deadline timeout, mismatch detection, extension fallback), `CaseBudgetTest` (byte caps, overflow rejection, shared-budget non-reset, counter acquire/release)
 - ✅ Full regression suite passing (290 tests), lint clean
 
-### Phase 15 (Format Expansion Stages) - NOT STARTED
-- Stage 15.1 PDF is next. Each stage adds one `ArtifactAnalyzer` to the dispatcher.
+### Phase 15 (Format Expansion Stages) — Stage 15.1 PDF IN PROGRESS
+- ✅ New module `:engine:pdf` (`settings.gradle.kts`, `engine/pdf/build.gradle.kts`) — library module, pure engine code (no Android framework types), deps: `core:common`, `core:model`, `engine:api`, coroutines, timber
+- ✅ `PdfScanReport` — bounded scan result model (object/stream counts, header, abnormalities, actions, features, encryption/metadata/signature flags, indicators)
+- ✅ `PdfScanner` — bounded, read-only, text-oriented scan: max `16 MiB` (`PdfAnalyzer.MAX_SCAN_BYTES`) read via `ArtifactRef.readRange`; detects `%PDF` header, `%%EOF`/startxref, `/JavaScript`/`/JS`, `/OpenAction`, `/Launch`, `/AcroForm`, `/XFA`, `/EmbeddedFiles`/`/Filespec`, annotations, `/RichMedia`, `/URI`/`/GoToR` remote references, `/Encrypt`, `/Metadata`, signatures; extracts bounded URL indicators (defanged). Never decodes or executes JS, never extracts embedded files, never contacts URIs
+- ✅ `PdfAnalyzer` — `ArtifactAnalyzer` (id `pdf.analyzer`, v `1.0.0`, supports `PDF`); 7 findings (`PDF-JS-001`, `PDF-OPENACTION-001`, `PDF-LAUNCH-001`, `PDF-XFA-001`, `PDF-EMBEDDED-001`, `PDF-REMOTE-001`), facts, metadata, `incomplete` flag on truncation/parser error (never false-clean), defensive type-mismatch guard
+- ✅ `engine:api` — `ArtifactRef` extended with `readNBytes`/`readRange` (bounded, budget-aware reads); orchestrator/dispatcher/test refs implement them
+- ✅ `AnalysisOrchestrator` — dead dispatcher removed; `analyzerRegistry()` now registers `PdfAnalyzer()`; `dispatcherRunner` passes it to `AnalysisDispatcher`
+- ✅ 8 new tests: `PdfAnalyzerTest` (minimal no-false-findings, JS+OpenAction, URL defanging, Launch, XFA+embedded, truncated-abnormality-not-clean, type mismatch, oversized truncation-no-throw) + `PdfTestFixture`/`ByteArtifactRef`
+- ✅ 2 new fuzz tests: `PdfAnalyzerFuzzTest` (analyzer + scanner over hostile/truncated/random byte corpora via `FuzzHarness`)
+- ✅ Pre-existing API-33 `readNBytes` lint errors fixed in `engine:archive` (`CaseZipTextScanner`, `SelectiveExtractor`) and `engine:pipeline` (`AnalysisPipeline`)
+- ✅ `:engine:pdf:testDebugUnitTest` green; touched modules lint-clean; full regression suite passing (300 tests)
+- ⏳ Remaining for Stage 15.1: `docs/FILE_FORMAT_EXPANSION_REVIEW.md` Stage-1 acceptance client notes, commit checkpoint
+- Stage 15.2 OOXML is next. Each stage adds one `ArtifactAnalyzer` to `analyzerRegistry()`.
 
 ## Next Steps (updated)

@@ -160,6 +160,13 @@ the highest explicit priority and exercises the generic framework; then reapply 
 families (Stage 2 OOXML, Stage 5 email) which reuse ZIP/text; then medium-risk image/barcode; then binary
 families (PE, OLE) last. Every stage is gated on the framework being complete.
 
+### Stage status
+
+| Stage | Family | Status | Notes |
+|---:|---|---|---|
+| Frame | Generic framework | ✅ implemented | Phase 14; ADR-0004 |
+| 1 | PDF | ✅ implemented | `:engine:pdf` (`PdfScanner`/`PdfAnalyzer`, id `pdf.analyzer` v1.0.0); bounded 16 MiB read-only scan; JS/OpenAction/Launch/XFA/embedded/remote/encryption/signature detection; defanged URL indicators; findings PDF-*-001; fuzz target not yet added |
+
 ---
 
 ## 5. Test/Resource/Security Implications

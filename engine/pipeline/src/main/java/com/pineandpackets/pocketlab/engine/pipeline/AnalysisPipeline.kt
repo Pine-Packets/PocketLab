@@ -60,7 +60,16 @@ class AnalysisPipeline(
             emit(AnalysisProgress.StageStarted("file_type", "Detecting file type"))
             val stageStart = System.currentTimeMillis()
             
-            val fileBytes = inputFile.inputStream().use { it.readNBytes(8) }
+            val fileBytes = inputFile.inputStream().use { input ->
+                val buf = ByteArray(8)
+                var off = 0
+                while (off < buf.size) {
+                    val n = input.read(buf, off, buf.size - off)
+                    if (n == -1) break
+                    off += n
+                }
+                buf
+            }
             val extension = inputFile.extension
             val fileTypeResult = FileTypeDetector.detect(fileBytes, extension, null)
             val detectedType = fileTypeResult.magicType?.let { 

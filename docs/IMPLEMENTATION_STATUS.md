@@ -1,6 +1,6 @@
 # PocketLab Implementation Status
 
-**Last Updated:** 2026-08-06 (session continued - native ELF analysis expansion)  
+**Last Updated:** 2026-08-07 (session continued - deterministic parser fuzzing harness)  
 **Project:** PocketLab - Android Static Malware Analysis App  
 **Organization:** Pine and Packets LLC
 
@@ -193,6 +193,16 @@
 
 1. **Pipeline integration tests need enhancement** - Tests exist but use minimal fixtures
 
+### Addressed This Session: Comprehensive Fuzzing
+
+A deterministic, seed-fixed `FuzzHarness` (in `core:testing`) now exercises the hostile
+parser boundary across the file-type detector, binary XML parser, resources.arsc parser,
+DEX parser, ELF parser, and the report renderers. It runs each probe with a termination
+budget on a dedicated worker, classifies fatal `Error`s (`OOM`, `StackOverflowError`,
+`NegativeArraySizeException`, `AssertionError`), and re-runs pure probes to check
+determinism. The parser changes below were made after the harness surfaced allocation
+risks in the hostile count/length fields of the binary XML and resource-table parsers.
+
 ## Test Coverage
 
 ### Unit Tests
@@ -228,11 +238,16 @@
 - ✅ Pipeline test: case archive notes inventory extracts indicators with provenance
 - ✅ CaseCleanupWorkerTest (retention-based cleanup, scratch data cleanup)
 - ✅ NestedArchiveTest (nested depth reporting, max compression ratio, unsupported entries)
+- ✅ FileTypeDetectorFuzzTest (magic/extension/MIME hostile fuzzing)
+- ✅ BinaryXmlParserFuzzTest + ResourceTableParserFuzzTest (AXML chunks, hostile counts/lengths)
+- ✅ DexAnalyzerFuzzTest (random DEX with temp-file staging, excessive-count quota)
+- ✅ ElfAnalyzerFuzzTest (random ELF64, hostile section count quota)
+- ✅ ReportRendererFuzzTest (JSON/Markdown/HTML/CSV hostile string rendering, determinism)
 
 ### Test Results
-- **Total Tests:** 265 test cases
+- **Total Tests:** 277 test cases
 - **Status:** All passing
-- **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation, split APK set construction, raw-APK and case-archive pipeline dispatch, multi-file intake staging orchestration, case ZIP notes/text inventory, analysis view-model state orchestration, property-based archive path safety, property-based IOC extraction invariants, native ELF symbol/dependency/JNI/segment analysis
+- **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation, split APK set construction, raw-APK and case-archive pipeline dispatch, multi-file intake staging orchestration, case ZIP notes/text inventory, analysis view-model state orchestration, property-based archive path safety, property-based IOC extraction invariants, native ELF symbol/dependency/JNI/segment analysis, comprehensive deterministic fuzzing of file-type, binary XML, resource table, DEX, ELF, and report renderer boundaries
 - **Missing:** Archive UI tests, signed APK fixtures for apksig
 
 ## Build Status
@@ -298,43 +313,50 @@
 35. **Property-Based Security Tests**: Seed-fixed kotest-property suites over arbitrary hostile inputs — archive paths never escape the workspace root or resolve outside it on disk, normalization is idempotent, rejected paths are suspicious or degenerate; IOC extraction is deterministic, deduplicated, substring-faithful, refang round-trip safe, scheme-defanged, and junk-only text never reports indicators
 36. **Full Archive Report Rendering**: Analyst archive section now displays observed expanded size, max observed compression ratio, nested depth, unsupported entries, skipped entries with reasons, quota events, and the WF-004 case notes/text-entry inventory with scanned bytes, charset, and extracted indicator previews
 37. **Native ELF Analysis**: Bounded read-only ELF parser extracting sections, program headers, symbols, dynamic dependencies, and JNI exports with executable-writable segment and strip-status detection; synthetic ELF64 fixture builder for parser tests
+38. **Deterministic Parser Fuzzing**: Seed-fixed `FuzzHarness` in `core:testing` drives a bounded corpus into the file-type detector, binary XML, resource-table, DEX, ELF, and report renderer boundaries, asserting no fatal `Error` escapes, no non-termination, and no non-determinism; the binary XML and resource-table parsers now bound hostile count/length allocations
+39. **Bounded Hostile Allocation in APK Parsers**: `BinaryXmlParser` and `ResourceTableParser` reject out-of-range string-pool count fields and cap UTF-8/UTF-16 string lengths against `AnalysisLimits` before allocating, closing potential OOM / `NegativeArraySizeException` vectors from hostile manifests and `resources.arsc`
 
 ## Repository
 
 - **GitHub:** https://github.com/Pine-Packets/PocketLab
 - **Branch:** main
-- **Total Commits:** 13
+- **Total Commits:** 15
 
 ## Next Steps
 
-### Immediate (Critical)
-1. Add comprehensive fuzzing tests (beyond the initial property-based suite)
+### Immediate (Next)
+1. Extend fuzzing to the archive/ZIP metadata path and the interactive rule interpreter corpus
+2. Expand the physical-device and instrumentation surface (process isolation, Adaptive layout, accessibility)
 
 ### Short-term
 1. Play Store release preparation
 
 ### Long-term
-1. Advanced code analysis (taint tracking, data flow)
+1. Advanced code analysis (streaming analysis, data flow)
 2. Machine learning for malware classification
 
 ## Conclusion
 
-PocketLab has made significant progress. The recent session added:
-- Fixed a critical pipeline gap: raw APK files (which are also ZIPs) and case archives containing APKs now run the full APK analysis stages (`apk_structure`, `apk`, `signing`, `dex`, `code_analysis`) instead of being treated as generic archives only
-- SplitApkSetBuilder to construct a synthetic APKS package set from multiple staged APKs, with strict size/count bounds and cleanup on failure
-- Multi-file intake wiring: `ACTION_SEND_MULTIPLE` manifest filters, multi-URI share validation and confirmation, multi-file document picker, and a URI-list navigation route
-- IntakeStagingCoordinator + IntakeViewModel: stage URIs into the private case workspace and bundle multiple APKs into a synthetic APKS before analysis; any failure deletes the whole case workspace
-- CaseZipTextScanner: bounded text/notes inventory of case archives (WF-004) with indicator extraction carrying container/entry provenance
-- AnalysisViewModel + AnalysisScreen: real analysis execution on staged cases via the AnalysisOrchestrator, stage progress streaming into Compose UI, encrypted report persistence, case-index update, cancellation, and error handling; CaseRepository gained a `createCaseWithId` overload so the analysis flow can create the case row for an existing staged workspace
-- ArchivePathNormalizer: centralized, property-tested path-safety logic (traversal, absolute, drive, NUL, empty rejection) now shared by ArchiveAnalyzer
-- Property-based test suites (kotest-property, fixed seeds): 6 archive path-safety properties and 9 IOC extraction invariants over arbitrary hostile inputs
-- Native ELF analysis: the `ElfAnalyzer` was rewritten into a bounded read-only parser that extracts section names, program headers (with executable-writable segment detection), `.symtab`/`.dynsym` symbols, `DT_NEEDED` dynamic dependencies, and `Java_*` JNI exports, plus strip-status and architecture/ABI mapping. A synthetic `Elf64Builder` test fixture exercises the new fields; all counts are capped and oversized inputs are quota-rejected.
-- 3 pipeline regression/feature tests, 7 SplitApkSetBuilder tests, 6 IntakeStagingCoordinator tests, 5 CaseZipTextScanner tests, 1 pipeline notes-inventory test, 6 AnalysisViewModel tests, 6 archive path property tests, 9 IOC property tests, and 5 additional native ELF tests
+PocketLab has made significant progress. The most recent session added:
+- A deterministic, seed-fixed `FuzzHarness` in `core:testing` that drives hostile byte
+  corpora (structured magic prefixes + random tails across many sizes) into the engine's
+  hostile-input boundaries with a termination budget, fatal-`Error` classification,
+  and a pure-probe determinism re-run. It is deliberately seed-fixed so any failure is
+  reproducible, matching the "safe parser failure" definition.
+- Fuzz suites for the file-type detector, binary XML parser, resources.arsc parser,
+  DEX parser, ELF parser, and the JSON/Markdown/HTML/CSV report renderers (12 new tests).
+- Bounded allocation in `BinaryXmlParser` and `ResourceTableParser`: previously the
+  string-pool count and per-string length fields were used to size `IntArray`/`CharArray`/`ByteArray`
+  allocations directly, permitting hostile headers to trigger `OutOfMemoryError` or
+  `NegativeArraySizeException`. These are now bounded against `AnalysisLimits.MAX_STRING_COUNT`
+  and `MAX_STRING_LENGTH`, matching the plan §32 rule "Do not allocate using hostile length
+  fields before validation".
+- All engine modules that exercise hostile parsers now depend on `:core:testing` for tests.
 
-Total tests: 265, all passing.
+Total tests: 277, all passing (plus fuzz-driven allocation hardening).
 
 The critical path forward is:
-1. Add comprehensive fuzzing tests (beyond the initial property-based suite)
+1. Extend fuzzing to the archive metadata path and grow the physical/instrumentation test base
 2. Prepare for Play Store release
 
 Estimated time to MVP: 2-3 weeks of full-time development.

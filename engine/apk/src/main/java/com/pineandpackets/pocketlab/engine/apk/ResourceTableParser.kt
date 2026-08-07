@@ -1,5 +1,7 @@
 package com.pineandpackets.pocketlab.engine.apk
 
+import com.pineandpackets.pocketlab.core.common.AnalysisError
+import com.pineandpackets.pocketlab.core.common.AnalysisLimits
 import timber.log.Timber
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -118,6 +120,13 @@ class ResourceTableParser {
         
         val isUtf8 = (flags and (1 shl 8)) != 0
         
+        if (stringCount < 0 || stringCount > AnalysisLimits.MAX_STRING_COUNT) {
+            throw AnalysisError.ParserError("String pool count out of bounds: $stringCount")
+        }
+        if (styleCount < 0 || styleCount > AnalysisLimits.MAX_STRING_COUNT) {
+            throw AnalysisError.ParserError("Style pool count out of bounds: $styleCount")
+        }
+        
         // Read string offsets
         val offsets = IntArray(stringCount) { buffer.int }
         
@@ -148,8 +157,9 @@ class ResourceTableParser {
         // UTF-8 strings have character count and byte count
         val charCount = readUtf8Length(buffer)
         val byteCount = readUtf8Length(buffer)
-        
-        val bytes = ByteArray(byteCount)
+
+        val boundedBytes = minOf(byteCount, AnalysisLimits.MAX_STRING_LENGTH)
+        val bytes = ByteArray(boundedBytes)
         buffer.get(bytes)
         
         // Skip null terminator
@@ -179,8 +189,9 @@ class ResourceTableParser {
             len1
         }
         
-        val chars = CharArray(strLen)
-        for (i in 0 until strLen) {
+        val boundedLen = minOf(strLen, AnalysisLimits.MAX_STRING_LENGTH)
+        val chars = CharArray(boundedLen)
+        for (i in 0 until boundedLen) {
             chars[i] = buffer.short.toInt().toChar()
         }
         
@@ -269,6 +280,10 @@ class ResourceTableParser {
         // Config (variable size, skip for now)
         val configSize = buffer.int
         buffer.position(startPos + headerSize)
+        
+        if (entryCount < 0 || entryCount > AnalysisLimits.MAX_STRING_COUNT) {
+            throw AnalysisError.ParserError("Type entry count out of bounds: $entryCount")
+        }
         
         // Read entry offsets
         val offsets = IntArray(entryCount) { buffer.int }

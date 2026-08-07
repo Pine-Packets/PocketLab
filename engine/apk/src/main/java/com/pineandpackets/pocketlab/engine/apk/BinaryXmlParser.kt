@@ -1,6 +1,7 @@
 package com.pineandpackets.pocketlab.engine.apk
 
 import com.pineandpackets.pocketlab.core.common.AnalysisError
+import com.pineandpackets.pocketlab.core.common.AnalysisLimits
 import timber.log.Timber
 import java.io.ByteArrayInputStream
 import java.io.InputStream
@@ -143,7 +144,15 @@ class BinaryXmlParser {
         val flags = buffer.int
         val stringsStart = buffer.int
         val stylesStart = buffer.int
-        
+
+        // Hostile-input bound: never allocate tables sized by an untrusted count.
+        if (stringCount < 0 || stringCount > AnalysisLimits.MAX_STRING_COUNT) {
+            throw AnalysisError.ParserError("String pool count out of bounds: $stringCount")
+        }
+        if (styleCount < 0 || styleCount > AnalysisLimits.MAX_STRING_COUNT) {
+            throw AnalysisError.ParserError("Style pool count out of bounds: $styleCount")
+        }
+
         val isUtf8 = (flags and (1 shl 8)) != 0
         
         val stringOffsets = IntArray(stringCount) { buffer.int }
@@ -170,8 +179,9 @@ class BinaryXmlParser {
         } else {
             len1
         }
-        
-        val bytes = ByteArray(strLen)
+
+        val boundedLen = minOf(strLen, AnalysisLimits.MAX_STRING_LENGTH)
+        val bytes = ByteArray(boundedLen)
         buffer.get(bytes)
         return String(bytes, Charsets.UTF_8)
     }
@@ -185,9 +195,10 @@ class BinaryXmlParser {
         } else {
             len1
         }
-        
-        val chars = CharArray(strLen)
-        for (i in 0 until strLen) {
+
+        val boundedLen = minOf(strLen, AnalysisLimits.MAX_STRING_LENGTH)
+        val chars = CharArray(boundedLen)
+        for (i in 0 until boundedLen) {
             chars[i] = buffer.short.toInt().toChar()
         }
         return String(chars)
@@ -195,6 +206,9 @@ class BinaryXmlParser {
     
     private fun parseResourceIds(buffer: ByteBuffer, headerSize: Int, chunkSize: Int) {
         val count = (chunkSize - 8) / 4
+        if (count < 0 || count > AnalysisLimits.MAX_STRING_COUNT) {
+            throw AnalysisError.ParserError("Resource ID count out of bounds: $count")
+        }
         resourceIds = IntArray(count) { buffer.int }
     }
     

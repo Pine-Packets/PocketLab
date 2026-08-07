@@ -407,6 +407,40 @@ class AnalysisPipelineIntegrationTest {
             report.limitations.any { it.contains("archive container") || it.contains("inside an archive") }
         )
     }
+
+    @Test
+    fun `case archive notes inventory extracts indicators with provenance`() = runTest {
+        val pipeline = AnalysisPipeline()
+        val caseZip = createCaseArchiveWithApk()
+        val hashes = HashResult("sha256", "sha1", "md5")
+
+        val progress = pipeline.analyze("test-case", caseZip, hashes).toList()
+        val completeEvent = progress.filterIsInstance<AnalysisProgress.Complete>().firstOrNull()
+        assertNotNull(completeEvent)
+
+        val report = completeEvent!!.report
+        val archive = report.archive
+        assertNotNull(archive)
+
+        val textEntries = archive!!.textEntryInventory
+        assertTrue(
+            "Archive notes inventory should include the analyst_notes.txt entry",
+            textEntries.any { it.path == "analyst_notes.txt" }
+        )
+
+        val notesEntry = textEntries.first { it.path == "analyst_notes.txt" }
+        assertTrue(
+            "Notes inventory should extract the URL from the notes text",
+            notesEntry.indicators.any { it.type == IndicatorType.URL && it.canonicalValue.contains("evil.example.com") }
+        )
+        assertTrue(
+            "Notes indicators should carry the archive entry provenance",
+            notesEntry.indicators.all {
+                (it.source as? IndicatorSource)?.entry == "analyst_notes.txt" &&
+                    (it.source as? IndicatorSource)?.container != null
+            }
+        )
+    }
     
     @Test
     fun `analyze split APK set built from multiple files produces package set report`() = runTest {

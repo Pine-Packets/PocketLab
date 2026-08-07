@@ -9,6 +9,7 @@ import com.pineandpackets.pocketlab.engine.apk.ApksigVerifier
 import com.pineandpackets.pocketlab.engine.apk.ApkStructureValidator
 import com.pineandpackets.pocketlab.engine.archive.ArchiveAnalyzer
 import com.pineandpackets.pocketlab.engine.archive.ArchiveAnalysisResult
+import com.pineandpackets.pocketlab.engine.archive.CaseZipTextScanner
 import com.pineandpackets.pocketlab.engine.archive.PackageSetAnalyzer
 import com.pineandpackets.pocketlab.engine.dex.DexAnalyzer
 import com.pineandpackets.pocketlab.engine.dex.ReflectionDetector
@@ -34,6 +35,7 @@ class AnalysisPipeline(
     private val apksigVerifier = ApksigVerifier()
     private val dexAnalyzer = DexAnalyzer()
     private val iocExtractor = IocExtractor()
+    private val caseZipTextScanner = CaseZipTextScanner()
     private val rulesEngine = RulesEngine()
     private val reflectionDetector = ReflectionDetector()
     
@@ -49,6 +51,7 @@ class AnalysisPipeline(
         var apkInfo: ApkInfo? = null
         var archiveResult: ArchiveAnalysisResult? = null
         val dexInfos = mutableListOf<DexInfo>()
+        val caseTextInventory = mutableListOf<CaseTextEntry>()
         val stageResults = mutableListOf<StageResult>()
         val limitations = mutableListOf<String>()
         val errors = mutableListOf<ModelAnalysisError>()
@@ -97,7 +100,16 @@ class AnalysisPipeline(
                         errorCode = null
                     ))
                     emit(AnalysisProgress.StageComplete("archive"))
-                    
+
+                    // Case archive text/notes inventory (WF-004): stream bounded
+                    // text entries and extract indicators with container provenance.
+                    if (config.iocExtractionEnabled) {
+                        caseZipTextScanner.scan(inputFile).getOrNull().orEmpty().forEach { textEntry ->
+                            caseTextInventory.add(textEntry)
+                            textEntry.indicators.forEach { indicators.add(it) }
+                        }
+                    }
+
                     if (archiveResult?.passwordRequired == true) {
                         emit(AnalysisProgress.StageFailed("archive", "Archive is encrypted and requires password"))
                     } else if (packageSetAnalyzer.detectPackageSetType(inputFile) != null) {
@@ -454,6 +466,7 @@ class AnalysisPipeline(
                 hashes = hashes,
                 apkInfo = apkInfo,
                 archiveResult = archiveResult,
+                caseTextInventory = caseTextInventory,
                 dexInfos = dexInfos,
                 findings = findings,
                 indicators = indicators,
@@ -828,6 +841,7 @@ class AnalysisPipeline(
         hashes: HashResult,
         apkInfo: ApkInfo?,
         archiveResult: ArchiveAnalysisResult?,
+        caseTextInventory: List<CaseTextEntry>,
         dexInfos: List<DexInfo>,
         findings: List<Finding>,
         indicators: List<Indicator>,
@@ -871,7 +885,7 @@ class AnalysisPipeline(
                 md5 = hashes.md5
             ),
             containers = emptyList(),
-            archive = archiveResult?.let { buildArchiveSection(it) },
+            archive = archiveResult?.let { buildArchiveSection(it, caseTextInventory) },
             files = emptyList(),
             apk = apkInfo,
             dex = dexInfos,
@@ -917,7 +931,10 @@ class AnalysisPipeline(
         return Confidence.HIGH
     }
     
-    private fun buildArchiveSection(archiveResult: ArchiveAnalysisResult): ArchiveReportSection {
+    private fun buildArchiveSection(
+        archiveResult: ArchiveAnalysisResult,
+        caseTextInventory: List<CaseTextEntry> = emptyList()
+    ): ArchiveReportSection {
         val analyzedChildren = archiveResult.entries.map { entry ->
             ArchiveChildEntry(
                 path = entry.normalizedPath,
@@ -972,7 +989,8 @@ class AnalysisPipeline(
             analyzedChildren = analyzedChildren,
             skippedChildren = skippedChildren,
             quotaEvents = quotaEvents,
-            integrityStatus = integrityStatus
+            integrityStatus = integrityStatus,
+            textEntryInventory = caseTextInventory
         )
     }
     

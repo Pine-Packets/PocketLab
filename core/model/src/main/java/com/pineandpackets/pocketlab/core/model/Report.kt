@@ -388,7 +388,8 @@ data class ArchiveReportSection(
     val analyzedChildren: List<ArchiveChildEntry>,
     val skippedChildren: List<ArchiveSkippedEntry>,
     val quotaEvents: List<String>,
-    val integrityStatus: ArchiveIntegrityStatus
+    val integrityStatus: ArchiveIntegrityStatus,
+    val textEntryInventory: List<CaseTextEntry> = emptyList()
 )
 
 @Serializable
@@ -406,6 +407,20 @@ data class ArchiveChildEntry(
 data class ArchiveSkippedEntry(
     val path: String,
     val reason: String
+)
+
+/**
+ * A text/notes entry inventoried from a case archive (WF-004). Content is
+ * never stored; only the entry path, bounded scan metadata, and any indicators
+ * extracted from the entry text are recorded.
+ */
+@Serializable
+data class CaseTextEntry(
+    val path: String,
+    val expandedSize: Long,
+    val scannedBytes: Long,
+    val detectedCharset: String? = null,
+    val indicators: List<Indicator> = emptyList()
 )
 
 @Serializable

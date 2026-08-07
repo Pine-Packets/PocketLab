@@ -11,6 +11,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":engine:api"))
     implementation(project(":engine:apk"))
+    implementation(project(":engine:ioc"))
     implementation(libs.commons.compress)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)

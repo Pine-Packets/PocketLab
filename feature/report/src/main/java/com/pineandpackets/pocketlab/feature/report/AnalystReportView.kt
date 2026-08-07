@@ -277,7 +277,10 @@ private fun ArchiveInfoContent(archive: ArchiveReportSection) {
         MetadataRow("Encrypted", archive.encrypted.toString())
         MetadataRow("Entry Count", archive.entryCount.toString())
         MetadataRow("Compressed Size", formatBytes(archive.declaredCompressedSize))
-        MetadataRow("Expanded Size", formatBytes(archive.declaredExpandedSize))
+        MetadataRow("Expanded Size (declared)", formatBytes(archive.declaredExpandedSize))
+        MetadataRow("Expanded Size (observed)", formatBytes(archive.observedExpandedSize))
+        MetadataRow("Max Observed Ratio", "${(archive.maxObservedRatio * 10).toInt() / 10.0}:1")
+        MetadataRow("Nested Depth", archive.nestedDepth.toString())
         MetadataRow("Integrity", archive.integrityStatus.name)
         
         if (archive.suspiciousPaths.isNotEmpty()) {
@@ -322,6 +325,56 @@ private fun ArchiveInfoContent(archive: ArchiveReportSection) {
             }
         }
         
+        if (archive.unsupportedEntries.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Unsupported Entries (${archive.unsupportedEntries.size}):",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold
+            )
+            archive.unsupportedEntries.take(10).forEach { path ->
+                Text(
+                    text = "• $path",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        
+        if (archive.skippedChildren.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Skipped Entries (${archive.skippedChildren.size}):",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold
+            )
+            archive.skippedChildren.take(10).forEach { skipped ->
+                Text(
+                    text = "• ${skipped.path} — ${skipped.reason}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        
+        if (archive.quotaEvents.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Quota Events (${archive.quotaEvents.size}):",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.error
+            )
+            archive.quotaEvents.take(10).forEach { event ->
+                Text(
+                    text = "• $event",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+        
         if (archive.analyzedChildren.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -350,6 +403,47 @@ private fun ArchiveInfoContent(archive: ArchiveReportSection) {
             if (archive.analyzedChildren.size > 20) {
                 Text(
                     text = "... and ${archive.analyzedChildren.size - 20} more entries",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        
+        if (archive.textEntryInventory.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Notes / Text Entries (${archive.textEntryInventory.size}):",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold
+            )
+            archive.textEntryInventory.take(20).forEach { entry ->
+                Column {
+                    Text(
+                        text = entry.path,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "Scanned ${formatBytes(entry.scannedBytes)} of ${formatBytes(entry.expandedSize)}" +
+                            (entry.detectedCharset?.let { ", charset: $it" } ?: "") +
+                            ", indicators: ${entry.indicators.size}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    entry.indicators.take(5).forEach { indicator ->
+                        Text(
+                            text = "  • ${indicator.type.name}: ${indicator.defangedValue}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            if (archive.textEntryInventory.size > 20) {
+                Text(
+                    text = "... and ${archive.textEntryInventory.size - 20} more text entries",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

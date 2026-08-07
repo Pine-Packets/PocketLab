@@ -293,6 +293,7 @@
 33. **Real Analysis Progress UI**: AnalysisScreen now runs the real analysis pipeline on staged cases through an AnalysisViewModel, streaming stage progress from the AnalysisOrchestrator, persisting the canonical report via EncryptedReportStorage, and updating the case index; includes a cancel path and error surfacing
 34. **Centralized Archive Path Normalizer**: ArchivePathNormalizer centralizes traversal/absolute/drive/NUL rejection and normalization, shared by the archive analyzer, with rejection of empty and drive-prefixed normalized paths
 35. **Property-Based Security Tests**: Seed-fixed kotest-property suites over arbitrary hostile inputs — archive paths never escape the workspace root or resolve outside it on disk, normalization is idempotent, rejected paths are suspicious or degenerate; IOC extraction is deterministic, deduplicated, substring-faithful, refang round-trip safe, scheme-defanged, and junk-only text never reports indicators
+36. **Full Archive Report Rendering**: Analyst archive section now displays observed expanded size, max observed compression ratio, nested depth, unsupported entries, skipped entries with reasons, quota events, and the WF-004 case notes/text-entry inventory with scanned bytes, charset, and extracted indicator previews
 
 ## Repository
 

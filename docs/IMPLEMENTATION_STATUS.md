@@ -1,6 +1,6 @@
 # PocketLab Implementation Status
 
-**Last Updated:** 2026-08-07 (session continued - deterministic parser fuzzing harness)  
+**Last Updated:** 2026-08-07 (Phase 14 generic artifact framework)  
 **Project:** PocketLab - Android Static Malware Analysis App  
 **Organization:** Pine and Packets LLC
 
@@ -246,7 +246,7 @@ XML and resource-table parsers.
 - ✅ ArchiveAnalyzerFuzzTest (random ZIP bytes plus byte-flip/truncation mutants of a valid ZIP through ZipValidator preflight and enumeration)
 
 ### Test Results
-- **Total Tests:** 278 test cases
+- **Total Tests:** 290 test cases
 - **Status:** All passing
 - **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation, split APK set construction, raw-APK and case-archive pipeline dispatch, multi-file intake staging orchestration, case ZIP notes/text inventory, analysis view-model state orchestration, property-based archive path safety, property-based IOC extraction invariants, native ELF symbol/dependency/JNI/segment analysis, comprehensive deterministic fuzzing of file-type, binary XML, resource table, DEX, ELF, and report renderer boundaries
 - **Missing:** Archive UI tests, signed APK fixtures for apksig
@@ -321,7 +321,7 @@ XML and resource-table parsers.
 
 - **GitHub:** https://github.com/Pine-Packets/PocketLab
 - **Branch:** main
-- **Total Commits:** 16
+- **Total Commits:** 25
 
 ## Next Steps
 
@@ -390,3 +390,29 @@ presentation:
 Work item: The development-plan document was removed because it was an internal build
 specification. Future work should treat `docs/IMPLEMENTATION_STATUS.md`, the ADRs, and the
 architectural/security docs as the authoritative reference.
+
+## Format-Expansion Program (Phases 14-15)
+
+A new authoritative expansion spec (`docs/AUTHORITATIVE_EXISTING_MATERIAL.md`) mandates
+converting PocketLab from an APK/archive-only analyzer into a general-purpose local-first
+static file-analysis platform (PDF, OOXML, OLE, images, email, archives, scripts, PE, ...).
+The master development plan was **restored** from git history
+(`git checkout 1bb0455~1 -- docs/ANDROID_STATIC_ANALYSIS_APP_DEVELOPMENT_PLAN.md`) because
+the expansion task requires maintaining it; `AGENTS.md` was also re-pointed at it.
+`docs/FILE_FORMAT_EXPANSION_REVIEW.md` records the gap analysis and phase order.
+
+### Phase 14: Generic Artifact Analysis Framework ✅ IMPLEMENTED
+- ✅ `core:model` — `ArtifactNode` (stable id, parent id, relation, original/sanitized name, claimed MIME, detected type/subtype, size, SHA-256, metadata, indicators, findings, facts, children, parser errors, completeness, limitations, analyzer attribution), `AnalyzerInfo`, `AnalyzerUse`, `ArtifactMetadataEntry`, `ParserErrorRecord`
+- ✅ Report schema bumped additively `1.0.0 → 1.1.0` (`artifacts`, `analyzerInfo` lists with defaults); golden snapshot regenerated
+- ✅ `engine:api` — `CaseBudget` (shared case-level counters with checked arithmetic, overflow-as-rejection, never reset for nested containers), `AnalysisCancellation` (thread-safe cooperative cancel), `AnalysisContext` (budget + cancellation + wall-clock deadline + op accounting), `ArtifactAnalyzer`/`ArtifactRef`/`AnalyzerResult`/`ParsedChild`/`DetectionLayer` (pure engine interfaces, no Android framework types)
+- ✅ `engine:orchestrator` — `AnalysisDispatcher` (layered detection: content signature → structural → container → advisory MIME → extension; multi-analyzer fan-out for polyglots; recursive child dispatch under one shared budget with max nesting depth; analyzer-crash → `ParserErrorRecord` marks node incomplete, never false-clean; cancellation/timeout captured in `AnalysisOutcome`)
+- ✅ `FileArtifactSource` (budgeted/cancel-safe file reads), `LayeredTypeDetector` (magic-first detection with mismatch flags)
+- ✅ `AnalysisOrchestrator` wired: keeps a per-job `AnalysisCancellation`, `cancel(jobId)` now actually cancels, and the dispatcher's artifact tree + analyzer metadata are merged into the final report (schema `1.1.0`)
+- ✅ ADR-0004 (`docs/adr/ADR-0004-generic-artifact-analysis-framework.md`)
+- ✅ 14 new tests: `AnalysisDispatcherTest` (routing, polyglot fan-out, recursive child dispatch, nesting-depth bound, analyzer crash, cancellation, deadline timeout, mismatch detection, extension fallback), `CaseBudgetTest` (byte caps, overflow rejection, shared-budget non-reset, counter acquire/release)
+- ✅ Full regression suite passing (290 tests), lint clean
+
+### Phase 15 (Format Expansion Stages) - NOT STARTED
+- Stage 15.1 PDF is next. Each stage adds one `ArtifactAnalyzer` to the dispatcher.
+
+## Next Steps (updated)

@@ -1,168 +1,170 @@
 {
-  "schemaVersion": "1.0.0",
-  "reportId": "golden-minimal-001",
-  "caseId": "case-minimal-001",
-  "createdAt": "2026-01-01T00:00:00Z",
-  "analysisStartedAt": "2026-01-01T00:00:00Z",
-  "analysisCompletedAt": "2026-01-01T00:00:01Z",
-  "engine": {
-    "appVersion": "1.0.0",
-    "engineVersion": "1.0.0",
-    "reportSchemaVersion": "1.0.0",
-    "rulePackVersion": "1.0.0"
-  },
-  "settings": {
-    "analysisProfile": "standard",
-    "hashAlgorithms": [
-      "SHA-256",
-      "SHA-1",
-      "MD5"
-    ],
-    "nativeAnalysisEnabled": true,
-    "deepDexAnalysisEnabled": true,
-    "iocExtractionEnabled": true
-  },
-  "source": {
-    "displayName": "minimal.apk",
-    "mimeType": "application/vnd.android.package-archive",
-    "sizeReported": 1024,
-    "sizeActual": 1024,
-    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
-    "md5": "d41d8cd98f00b204e9800998ecf8427e"
-  },
-  "containers": [],
-  "archive": null,
-  "files": [
-    {
-      "id": "file-1",
-      "containerId": null,
-      "virtualPath": "AndroidManifest.xml",
-      "compressedSize": 512,
-      "expandedSize": 1024,
-      "compressionMethod": "DEFLATE",
-      "magicType": "AXML",
-      "sha256": null
+    "schemaVersion": "1.1.0",
+    "reportId": "golden-minimal-001",
+    "caseId": "case-minimal-001",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "analysisStartedAt": "2026-01-01T00:00:00Z",
+    "analysisCompletedAt": "2026-01-01T00:00:01Z",
+    "engine": {
+        "appVersion": "1.0.0",
+        "engineVersion": "1.0.0",
+        "reportSchemaVersion": "1.1.0",
+        "rulePackVersion": "1.0.0"
     },
-    {
-      "id": "file-2",
-      "containerId": null,
-      "virtualPath": "classes.dex",
-      "compressedSize": 256,
-      "expandedSize": 512,
-      "compressionMethod": "DEFLATE",
-      "magicType": "DEX",
-      "sha256": null
-    }
-  ],
-  "apk": {
-    "packageName": "com.example.minimal",
-    "versionName": "1.0.0",
-    "versionCode": 1,
-    "minSdk": 21,
-    "targetSdk": 34,
-    "compileSdk": 34,
-    "applicationLabel": "Minimal App",
-    "debuggable": false,
-    "backupAllowed": false,
-    "usesCleartextTraffic": false,
-    "permissions": [],
-    "components": [],
-    "signingInfo": {
-      "signatureSchemes": [
-        "v1"
-      ],
-      "verified": false,
-      "signerCount": 1,
-      "certificates": [
+    "settings": {
+        "analysisProfile": "standard",
+        "hashAlgorithms": [
+            "SHA-256",
+            "SHA-1",
+            "MD5"
+        ],
+        "nativeAnalysisEnabled": true,
+        "deepDexAnalysisEnabled": true,
+        "iocExtractionEnabled": true
+    },
+    "source": {
+        "displayName": "minimal.apk",
+        "mimeType": "application/vnd.android.package-archive",
+        "sizeReported": 1024,
+        "sizeActual": 1024,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+        "md5": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "containers": [],
+    "archive": null,
+    "files": [
         {
-          "subject": "CN=Test",
-          "issuer": "CN=Test",
-          "serialNumber": "1234567890",
-          "validFrom": "2024-01-01T00:00:00Z",
-          "validTo": "2050-01-01T00:00:00Z",
-          "algorithm": "SHA256withRSA",
-          "keySize": 2048,
-          "fingerprint": "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99",
-          "selfSigned": true,
-          "debugCertificate": false
+            "id": "file-1",
+            "containerId": null,
+            "virtualPath": "AndroidManifest.xml",
+            "compressedSize": 512,
+            "expandedSize": 1024,
+            "compressionMethod": "DEFLATE",
+            "magicType": "AXML",
+            "sha256": null
+        },
+        {
+            "id": "file-2",
+            "containerId": null,
+            "virtualPath": "classes.dex",
+            "compressedSize": 256,
+            "expandedSize": 512,
+            "compressionMethod": "DEFLATE",
+            "magicType": "DEX",
+            "sha256": null
         }
-      ],
-      "signingLineage": [],
-      "hasLineage": false
-    }
-  },
-  "dex": [
-    {
-      "name": "classes.dex",
-      "version": "035",
-      "classCount": 10,
-      "methodCount": 50,
-      "stringCount": 100,
-      "size": 512,
-      "strings": [],
-      "typeIds": [],
-      "methodIds": [],
-      "fieldIds": [],
-      "classDefs": [],
-      "apiReferences": [],
-      "reconstructedStrings": []
-    }
-  ],
-  "nativeLibraries": [],
-  "indicators": [],
-  "facts": [],
-  "findings": [],
-  "summary": {
-    "riskBand": "NO_MAJOR_CONCERNS",
-    "confidence": "HIGH",
-    "completeness": 1.0,
-    "findingCount": 0,
-    "maxSeverity": null,
-    "topFindings": []
-  },
-  "stageResults": [
-    {
-      "stageId": "file_type",
-      "state": "COMPLETE",
-      "startedAt": "2026-01-01T00:00:00Z",
-      "completedAt": "2026-01-01T00:00:00Z",
-      "progressCurrent": 100,
-      "progressTotal": 100,
-      "warningCount": 0,
-      "errorCode": null
+    ],
+    "artifacts": [],
+    "analyzerInfo": [],
+    "apk": {
+        "packageName": "com.example.minimal",
+        "versionName": "1.0.0",
+        "versionCode": 1,
+        "minSdk": 21,
+        "targetSdk": 34,
+        "compileSdk": 34,
+        "applicationLabel": "Minimal App",
+        "debuggable": false,
+        "backupAllowed": false,
+        "usesCleartextTraffic": false,
+        "permissions": [],
+        "components": [],
+        "signingInfo": {
+            "signatureSchemes": [
+                "v1"
+            ],
+            "verified": false,
+            "signerCount": 1,
+            "certificates": [
+                {
+                    "subject": "CN=Test",
+                    "issuer": "CN=Test",
+                    "serialNumber": "1234567890",
+                    "validFrom": "2024-01-01T00:00:00Z",
+                    "validTo": "2050-01-01T00:00:00Z",
+                    "algorithm": "SHA256withRSA",
+                    "keySize": 2048,
+                    "fingerprint": "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99",
+                    "selfSigned": true,
+                    "debugCertificate": false
+                }
+            ],
+            "signingLineage": [],
+            "hasLineage": false
+        }
     },
-    {
-      "stageId": "archive",
-      "state": "COMPLETE",
-      "startedAt": "2026-01-01T00:00:00Z",
-      "completedAt": "2026-01-01T00:00:00Z",
-      "progressCurrent": 100,
-      "progressTotal": 100,
-      "warningCount": 0,
-      "errorCode": null
+    "dex": [
+        {
+            "name": "classes.dex",
+            "version": "035",
+            "classCount": 10,
+            "methodCount": 50,
+            "stringCount": 100,
+            "size": 512,
+            "strings": [],
+            "typeIds": [],
+            "methodIds": [],
+            "fieldIds": [],
+            "classDefs": [],
+            "apiReferences": [],
+            "reconstructedStrings": []
+        }
+    ],
+    "nativeLibraries": [],
+    "indicators": [],
+    "facts": [],
+    "findings": [],
+    "summary": {
+        "riskBand": "NO_MAJOR_CONCERNS",
+        "confidence": "HIGH",
+        "completeness": 1.0,
+        "findingCount": 0,
+        "maxSeverity": null,
+        "topFindings": []
     },
-    {
-      "stageId": "apk",
-      "state": "COMPLETE",
-      "startedAt": "2026-01-01T00:00:00Z",
-      "completedAt": "2026-01-01T00:00:01Z",
-      "progressCurrent": 100,
-      "progressTotal": 100,
-      "warningCount": 0,
-      "errorCode": null
+    "stageResults": [
+        {
+            "stageId": "file_type",
+            "state": "COMPLETE",
+            "startedAt": "2026-01-01T00:00:00Z",
+            "completedAt": "2026-01-01T00:00:00Z",
+            "progressCurrent": 100,
+            "progressTotal": 100,
+            "warningCount": 0,
+            "errorCode": null
+        },
+        {
+            "stageId": "archive",
+            "state": "COMPLETE",
+            "startedAt": "2026-01-01T00:00:00Z",
+            "completedAt": "2026-01-01T00:00:00Z",
+            "progressCurrent": 100,
+            "progressTotal": 100,
+            "warningCount": 0,
+            "errorCode": null
+        },
+        {
+            "stageId": "apk",
+            "state": "COMPLETE",
+            "startedAt": "2026-01-01T00:00:00Z",
+            "completedAt": "2026-01-01T00:00:01Z",
+            "progressCurrent": 100,
+            "progressTotal": 100,
+            "warningCount": 0,
+            "errorCode": null
+        }
+    ],
+    "limitations": [
+        "Signature verification not performed",
+        "Static analysis cannot prove runtime behavior"
+    ],
+    "errors": [],
+    "integrity": {
+        "sourceSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "reportSha256": "golden-report-hash-placeholder",
+        "engineVersion": "1.0.0",
+        "rulePackVersion": "1.0.0",
+        "sampleRetained": false
     }
-  ],
-  "limitations": [
-    "Signature verification not performed",
-    "Static analysis cannot prove runtime behavior"
-  ],
-  "errors": [],
-  "integrity": {
-    "sourceSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "reportSha256": "golden-report-hash-placeholder",
-    "engineVersion": "1.0.0",
-    "rulePackVersion": "1.0.0",
-    "sampleRetained": false
-  }
 }

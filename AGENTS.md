@@ -11,8 +11,10 @@ The application analyzes user-selected APKs, DEX files, archives, executables, d
 Before performing substantial work, read:
 
 1. `docs/IMPLEMENTATION_STATUS.md`, when present
-2. Relevant ADRs under `docs/adr/`
-3. Relevant architecture, security, testing, privacy, and compliance documents
+2. `docs/AUTHORITATIVE_EXISTING_MATERIAL.md` and the master development plan `docs/ANDROID_STATIC_ANALYSIS_APP_DEVELOPMENT_PLAN.md` (Phases 0–15) for the expansion program
+3. `docs/FILE_FORMAT_EXPANSION_REVIEW.md` for the format-expansion gap analysis
+4. Relevant ADRs under `docs/adr/`
+5. Relevant architecture, security, testing, privacy, and compliance documents
 
 The repository and test results define what currently exists. Never assume functionality is complete merely because documentation describes it.
 

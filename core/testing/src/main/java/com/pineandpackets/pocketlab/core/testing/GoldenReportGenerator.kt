@@ -21,7 +21,7 @@ object GoldenReportGenerator {
      */
     fun generateMinimalApkReport(): AnalysisReport {
         return AnalysisReport(
-            schemaVersion = "1.0.0",
+            schemaVersion = "1.1.0",
             reportId = "golden-minimal-001",
             caseId = "case-minimal-001",
             createdAt = "2026-01-01T00:00:00Z",
@@ -30,7 +30,7 @@ object GoldenReportGenerator {
             engine = EngineInfo(
                 appVersion = "1.0.0",
                 engineVersion = "1.0.0",
-                reportSchemaVersion = "1.0.0",
+                reportSchemaVersion = "1.1.0",
                 rulePackVersion = "1.0.0"
             ),
             settings = AnalysisSettings(

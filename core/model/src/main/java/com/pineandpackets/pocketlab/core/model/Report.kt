@@ -16,6 +16,8 @@ data class AnalysisReport(
     val containers: List<ContainerInfo> = emptyList(),
     val archive: ArchiveReportSection? = null,
     val files: List<FileInfo> = emptyList(),
+    val artifacts: List<ArtifactNode> = emptyList(),
+    val analyzerInfo: List<AnalyzerInfo> = emptyList(),
     val apk: ApkInfo? = null,
     val dex: List<DexInfo> = emptyList(),
     val nativeLibraries: List<NativeLibraryInfo> = emptyList(),

@@ -101,11 +101,11 @@ class ArchiveAnalyzer {
                     
                     val entryName = entry.name
                     
-                    if (isPathSuspicious(entryName)) {
+                    if (ArchivePathNormalizer.isPathSuspicious(entryName)) {
                         suspiciousPaths.add(entryName)
                     }
                     
-                    val normalizedPath = normalizePath(entryName)
+                    val normalizedPath = ArchivePathNormalizer.normalize(entryName)
                     if (normalizedPath == null) {
                         suspiciousPaths.add(entryName)
                         continue
@@ -269,30 +269,6 @@ class ArchiveAnalyzer {
         return Result.failure(
             AnalysisError.ArchiveError("Archive is encrypted and requires password. Password-protected content cannot be analyzed without decryption support.")
         )
-    }
-    
-    private fun isPathSuspicious(path: String): Boolean {
-        return path.contains("..") ||
-               path.startsWith("/") ||
-               path.startsWith("\\") ||
-               path.matches(Regex("^[A-Za-z]:.*")) ||
-               path.contains("\u0000")
-    }
-    
-    private fun normalizePath(path: String): String? {
-        if (path.contains("\u0000")) return null
-        
-        val normalized = path
-            .replace("\\", "/")
-            .split("/")
-            .filter { it != "." && it != ".." && it.isNotEmpty() }
-            .joinToString("/")
-        
-        if (normalized.startsWith("/") || normalized.contains("..")) {
-            return null
-        }
-        
-        return normalized
     }
     
     private fun isArchiveFile(entryName: String, entry: ZipArchiveEntry): Boolean {

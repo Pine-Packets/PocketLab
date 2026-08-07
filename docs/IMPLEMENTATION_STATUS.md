@@ -1,6 +1,6 @@
 # PocketLab Implementation Status
 
-**Last Updated:** 2026-08-06 (session continued - real analysis execution wired to AnalysisScreen)  
+**Last Updated:** 2026-08-06 (session continued - property-based path and IOC safety tests)  
 **Project:** PocketLab - Android Static Malware Analysis App  
 **Organization:** Pine and Packets LLC
 
@@ -226,9 +226,9 @@
 - ✅ NestedArchiveTest (nested depth reporting, max compression ratio, unsupported entries)
 
 ### Test Results
-- **Total Tests:** 245 test cases
+- **Total Tests:** 260 test cases
 - **Status:** All passing
-- **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation, split APK set construction, raw-APK and case-archive pipeline dispatch, multi-file intake staging orchestration, case ZIP notes/text inventory, analysis view-model state orchestration
+- **Coverage:** Core functionality, security controls, parsers, redaction, correlation rules, golden reports, selective extraction, case cleanup, analysis config, pipeline integration, apksig verification, package sets, archive correlation, split APK set construction, raw-APK and case-archive pipeline dispatch, multi-file intake staging orchestration, case ZIP notes/text inventory, analysis view-model state orchestration, property-based archive path safety, property-based IOC extraction invariants
 - **Missing:** Archive UI tests, signed APK fixtures for apksig
 
 ## Build Status
@@ -291,6 +291,8 @@
 31. **Multi-File Staging Coordinator**: Stages selected URIs into the private case workspace; single file becomes the case input, multiple files are bundled into a synthetic APKS before analysis
 32. **Case ZIP Notes/Text Inventory**: Bounded streaming scan of text entries in case archives with indicator extraction and container/entry provenance (WF-004)
 33. **Real Analysis Progress UI**: AnalysisScreen now runs the real analysis pipeline on staged cases through an AnalysisViewModel, streaming stage progress from the AnalysisOrchestrator, persisting the canonical report via EncryptedReportStorage, and updating the case index; includes a cancel path and error surfacing
+34. **Centralized Archive Path Normalizer**: ArchivePathNormalizer centralizes traversal/absolute/drive/NUL rejection and normalization, shared by the archive analyzer, with rejection of empty and drive-prefixed normalized paths
+35. **Property-Based Security Tests**: Seed-fixed kotest-property suites over arbitrary hostile inputs — archive paths never escape the workspace root or resolve outside it on disk, normalization is idempotent, rejected paths are suspicious or degenerate; IOC extraction is deterministic, deduplicated, substring-faithful, refang round-trip safe, scheme-defanged, and junk-only text never reports indicators
 
 ## Repository
 
@@ -301,7 +303,7 @@
 ## Next Steps
 
 ### Immediate (Critical)
-1. Add comprehensive fuzzing tests
+1. Add comprehensive fuzzing tests (beyond the initial property-based suite)
 2. Native ELF analysis expansion
 
 ### Short-term
@@ -320,12 +322,14 @@ PocketLab has made significant progress. The recent session added:
 - IntakeStagingCoordinator + IntakeViewModel: stage URIs into the private case workspace and bundle multiple APKs into a synthetic APKS before analysis; any failure deletes the whole case workspace
 - CaseZipTextScanner: bounded text/notes inventory of case archives (WF-004) with indicator extraction carrying container/entry provenance
 - AnalysisViewModel + AnalysisScreen: real analysis execution on staged cases via the AnalysisOrchestrator, stage progress streaming into Compose UI, encrypted report persistence, case-index update, cancellation, and error handling; CaseRepository gained a `createCaseWithId` overload so the analysis flow can create the case row for an existing staged workspace
-- 3 pipeline regression/feature tests, 7 SplitApkSetBuilder tests, 6 IntakeStagingCoordinator tests, 5 CaseZipTextScanner tests, 1 pipeline notes-inventory test, and 6 AnalysisViewModel tests
+- ArchivePathNormalizer: centralized, property-tested path-safety logic (traversal, absolute, drive, NUL, empty rejection) now shared by ArchiveAnalyzer
+- Property-based test suites (kotest-property, fixed seeds): 6 archive path-safety properties and 9 IOC extraction invariants over arbitrary hostile inputs
+- 3 pipeline regression/feature tests, 7 SplitApkSetBuilder tests, 6 IntakeStagingCoordinator tests, 5 CaseZipTextScanner tests, 1 pipeline notes-inventory test, 6 AnalysisViewModel tests, 6 archive path property tests, and 9 IOC property tests
 
-Total tests: 245, all passing.
+Total tests: 260, all passing.
 
 The critical path forward is:
-1. Add comprehensive fuzzing tests
+1. Add comprehensive fuzzing tests (beyond the initial property-based suite)
 2. Native ELF analysis expansion
 3. Prepare for Play Store release
 

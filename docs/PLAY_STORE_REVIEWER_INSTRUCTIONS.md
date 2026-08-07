@@ -185,15 +185,14 @@ The demo fixture (`demo_fixture.apk`) is an inert APK with deliberately visible 
 - **Source code**: https://github.com/Pine-Packets/PocketLab
 - **Privacy policy**: https://github.com/Pine-Packets/PocketLab/blob/main/PRIVACY.md
 - **Security policy**: https://github.com/Pine-Packets/PocketLab/blob/main/SECURITY.md
-- **Development plan**: https://github.com/Pine-Packets/PocketLab/blob/main/docs/ANDROID_STATIC_ANALYSIS_APP_DEVELOPMENT_PLAN.md
 
 ## Contact
 
 For questions or issues during review:
 
 **Pine and Packets LLC**  
-Email: support@pineandpackets.com  
-Website: https://pineandpackets.com
+Email: 310212849+Pine-Packets@users.noreply.github.com  
+Website: https://github.com/Pine-Packets/PocketLab
 
 ## Test Account
 

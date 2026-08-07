@@ -135,7 +135,7 @@ Automated tests verify these APIs are not present in the codebase.
 
 If you discover a security vulnerability in PocketLab, please report it responsibly:
 
-**Email**: security@pineandpackets.com  
+**Email**: 310212849+Pine-Packets@users.noreply.github.com  
 **PGP Key**: Available on request
 
 Please include:
@@ -243,9 +243,9 @@ These limitations are clearly documented in reports.
 
 ## Security Contacts
 
-**Security team**: security@pineandpackets.com  
-**General support**: support@pineandpackets.com  
-**Website**: https://pineandpackets.com
+**Security team**: 310212849+Pine-Packets@users.noreply.github.com  
+**General support**: 310212849+Pine-Packets@users.noreply.github.com  
+**Website**: https://github.com/Pine-Packets/PocketLab
 
 ## Open Source
 

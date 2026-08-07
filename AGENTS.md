@@ -10,14 +10,11 @@ The application analyzes user-selected APKs, DEX files, archives, executables, d
 
 Before performing substantial work, read:
 
-1. `docs/ANDROID_STATIC_ANALYSIS_APP_DEVELOPMENT_PLAN.md`
-2. `docs/IMPLEMENTATION_STATUS.md`, when present
-3. Relevant ADRs under `docs/adr/`
-4. Relevant architecture, threat-model, testing, privacy, and compliance documents
+1. `docs/IMPLEMENTATION_STATUS.md`, when present
+2. Relevant ADRs under `docs/adr/`
+3. Relevant architecture, security, testing, privacy, and compliance documents
 
-The master development plan defines the intended phased implementation. The repository and test results define what currently exists.
-
-Never assume a phase is complete merely because the development plan describes it.
+The repository and test results define what currently exists. Never assume functionality is complete merely because documentation describes it.
 
 ## Autonomous operation
 
@@ -28,13 +25,12 @@ Do not ask the user for routine permission, confirmation, command execution, dep
 When ambiguity exists, prefer:
 
 1. Explicit user requirements
-2. The master development plan
-3. User and device safety
-4. Prevention of sample execution or data leakage
-5. Existing ADRs and architecture
-6. Current test evidence
-7. Official Android documentation
-8. The simplest secure and reversible implementation
+2. User and device safety
+3. Prevention of sample execution or data leakage
+4. Existing ADRs and architecture
+5. Current test evidence
+6. Official Android documentation
+7. The simplest secure and reversible implementation
 
 Document consequential decisions in an ADR.
 

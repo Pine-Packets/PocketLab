@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="760" viewBox="0 0 360 760">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f0fd"/>
+      <stop offset="1" stop-color="#e9e2ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="360" height="760" rx="36" fill="#ffffff"/>
+  <rect width="360" height="760" rx="36" fill="url(#bg)"/>
+  <!-- status bar -->
+  <rect x="0" y="0" width="360" height="40" rx="0" fill="#e9e2ff"/>
+  <circle cx="30" cy="50" r="6" fill="#6650a4"/>
+  <text x="60" y="55" font-family="sans-serif" font-size="13" fill="#3c3c46">PocketLab</text>
+  <!-- tagline -->
+  <text x="30" y="130" font-family="sans-serif" font-size="20" font-weight="bold" fill="#1a1a22">PocketLab</text>
+  <text x="30" y="154" font-family="sans-serif" font-size="13" fill="#625b71">Local static malware triage</text>
+  <!-- primary button -->
+  <rect x="30" y="196" width="300" height="52" rx="26" fill="#6650a4"/>
+  <text x="180" y="227" font-family="sans-serif" font-size="15" font-weight="bold" fill="#ffffff" text-anchor="middle">Analyze a file</text>
+  <!-- privacy card -->
+  <rect x="30" y="268" width="300" height="128" rx="16" fill="#ece6ff"/>
+  <text x="48" y="296" font-family="sans-serif" font-size="15" font-weight="bold" fill="#1a1b24">Privacy status</text>
+  <circle cx="48" cy="324" r="7" fill="#4caf7d"/>
+  <text x="64" y="329" font-family="sans-serif" font-size="13" fill="#3c3355">Offline analysis</text>
+  <circle cx="48" cy="352" r="7" fill="#4caf7d"/>
+  <text x="60" y="357" font-family="sans-serif" font-size="13" fill="#3c3355">No execution</text>
+  <circle cx="48" cy="380" r="7" fill="#4caf7d"/>
+  <text x="60" y="385" font-family="sans-serif" font-size="13" fill="#3c3355">No automatic uploads</text>
+  <!-- recent cases -->
+  <text x="30" y="470" font-family="sans-serif" font-size="15" font-weight="bold" fill="#1a1b24">Recent cases</text>
+  <text x="30" y="498" font-family="sans-serif" font-size="13" fill="#625b71">No recent cases</text>
+  <!-- bottom nav -->
+  <rect x="24" y="700" width="312" height="48" rx="24" fill="#ffffff"/>
+  <text x="70" y="729" font-family="sans-serif" font-size="13" font-weight="bold" fill="#6650a4" text-anchor="middle">Home</text>
+  <text x="180" y="729" font-family="sans-serif" font-size="13" fill="#625b71" text-anchor="middle">Cases</text>
+  <text x="290" y="729" font-family="sans-serif" font-size="13" fill="#625b71" text-anchor="middle">About</text>
+</svg>

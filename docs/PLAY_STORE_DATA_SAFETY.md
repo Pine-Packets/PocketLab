@@ -371,5 +371,5 @@ For Google Play reviewers:
 For questions about data handling:
 
 **Pine and Packets LLC**  
-Email: privacy@pineandpackets.com  
-Website: https://pineandpackets.com
+Email: 310212849+Pine-Packets@users.noreply.github.com  
+Website: https://github.com/Pine-Packets/PocketLab

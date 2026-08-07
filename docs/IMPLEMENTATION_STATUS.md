@@ -17,7 +17,6 @@
 - ✅ Build logic and convention plugins
 - ✅ Core dependencies configured (Compose, Room, Coroutines, etc.)
 - ✅ Documentation structure established
-- ✅ Development plan written (ANDROID_STATIC_ANALYSIS_APP_DEVELOPMENT_PLAN.md)
 - ✅ ADRs created (local-first, isolated process, canonical report)
 
 ### Phase 1: Application Foundation ✅ COMPLETE
@@ -366,3 +365,28 @@ The critical path forward is:
 2. Prepare for Play Store release
 
 Estimated time to MVP: 2-3 weeks of full-time development.
+
+## Repository housekeeping
+
+A subsequent session cleaned up the repository and prepared it for public GitHub
+presentation:
+
+- Added `README.md` with a project overview, feature set, screenshots (SVG mockups of the
+  actual UI in `docs/screens/`), build/install/test instructions, architecture overview,
+  tech stack, security & privacy pointers, and license.
+- Added `LICENSE` (Creative Commons Attribution-NonCommercial-NoDerivatives 4.0
+  International), matching the requested non-commercial, attribution-required posture.
+- Removed internal/agent-only artifacts no longer needed by the app:
+  `POCKETLAB_ONESHOT_PROMPT.md`, `opencode.json`, the master development plan
+  (`docs/ANDROID_STATIC_ANALYSIS_APP_DEVELOPMENT_PLAN.md`), `docs/GAP_ANALYSIS.md`, and
+  `docs/SESSION_NOTES_2026-08-05.md`, and cleared their cross-references in `AGENTS.md`,
+  `docs/IMPLEMENTATION_STATUS.md`, and `docs/PLAY_STORE_REVIEWER_INSTRUCTIONS.md`.
+- Replaced placeholder `@pineandpackets.com` contact addresses (nonexistent domain) in
+  `SECURITY.md`, `PRIVACY.md`, `docs/PLAY_STORE_DATA_SAFETY.md`,
+  `docs/PLAY_STORE_REVIEWER_INSTRUCTIONS.md`, `docs/PRIVACY_MODEL.md`, and
+  `test-corpus/README.md` with the GitHub noreply address
+  `310212849+Pine-Packets@users.noreply.github.com`.
+
+Work item: The development-plan document was removed because it was an internal build
+specification. Future work should treat `docs/IMPLEMENTATION_STATUS.md`, the ADRs, and the
+architectural/security docs as the authoritative reference.

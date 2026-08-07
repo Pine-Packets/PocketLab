@@ -228,5 +228,5 @@ Use fixtures in regression tests to verify:
 For questions about test corpus policy:
 
 **Pine and Packets LLC**  
-Email: security@pineandpackets.com  
-Website: https://pineandpackets.com
+Email: 310212849+Pine-Packets@users.noreply.github.com  
+Website: https://github.com/Pine-Packets/PocketLab

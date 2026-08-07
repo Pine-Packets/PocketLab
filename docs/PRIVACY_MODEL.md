@@ -204,5 +204,4 @@ The public privacy policy must explain:
 ## Contact
 
 Privacy concerns or questions:
-- Email: privacy@pineandpackets.com
-- Web: https://pineandpackets.com/privacy
+- Email: 310212849+Pine-Packets@users.noreply.github.com

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="760" viewBox="0 0 360 760">
+  <rect width="360" height="760" rx="36" fill="#ffffff"/>
+  <rect width="360" height="760" rx="36" fill="#f7f5ff"/>
+  <rect x="0" y="0" width="360" height="60" fill="#ffffff"/>
+  <text x="30" y="38" font-family="sans-serif" font-size="13" fill="#625b71">Back</text>
+  <text x="180" y="38" font-family="sans-serif" font-size="17" font-weight="bold" fill="#1a1b24" text-anchor="middle">Report</text>
+  <!-- risk band banner -->
+  <rect x="24" y="76" width="312" height="72" rx="14" fill="#ffe8e6"/>
+  <circle cx="52" cy="112" r="10" fill="#c62828"/>
+  <text x="74" y="106" font-family="sans-serif" font-size="14" font-weight="bold" fill="#8b1a1a">High-risk indicators</text>
+  <text x="74" y="128" font-family="sans-serif" font-size="12" fill="#8b1a1a">6 findings · Confidence: HIGH</text>
+  <!-- summary chips -->
+  <g font-family="sans-serif" font-size="12">
+    <rect x="24" y="164" width="96" height="44" rx="10" fill="#ffffff" stroke="#e0d9f0"/>
+    <text x="72" y="184" fill="#1a1b24" text-anchor="middle" font-weight="bold">3</text>
+    <text x="72" y="200" fill="#625b71" text-anchor="middle">CRITICAL</text>
+    <rect x="132" y="164" width="96" height="44" rx="10" fill="#ffffff" stroke="#e0d9f0"/>
+    <text x="180" y="184" fill="#1a1b24" text-anchor="middle" font-weight="bold">9</text>
+    <text x="180" y="200" fill="#625b71" text-anchor="middle">INDICATORS</text>
+    <rect x="240" y="164" width="96" height="44" rx="10" fill="#ffffff" stroke="#e0d9f0"/>
+    <text x="288" y="184" fill="#1a1b24" text-anchor="middle" font-weight="bold">92%</text>
+    <text x="288" y="200" fill="#625b71" text-anchor="middle">COMPLETE</text>
+  </g>
+  <!-- findings -->
+  <g font-family="sans-serif" font-size="13">
+    <rect x="24" y="228" width="312" height="74" rx="12" fill="#ffffff" stroke="#e0d9f0"/>
+    <rect x="24" y="228" width="6" height="74" rx="3" fill="#c62828"/>
+    <text x="42" y="252" font-weight="bold" fill="#1a1b24">Reflection-based class loading</text>
+    <text x="42" y="272" fill="#625b71">Code uses Class.forName() on dynamic input</text>
+    <text x="42" y="290" fill="#c62828">HIGH · MEDIUM confidence</text>
+    <rect x="24" y="314" width="312" height="74" rx="12" fill="#ffffff" stroke="#e0d9f0"/>
+    <rect x="24" y="314" width="6" height="74" rx="3" fill="#ffb74d"/>
+    <text x="42" y="338" font-weight="bold" fill="#1a1b24">Native library dependency</text>
+    <text x="42" y="358" fill="#625b71">libnative.so uses dlopen() / JNI exports</text>
+    <text x="42" y="376" fill="#b07010">MEDIUM · HIGH confidence</text>
+  </g>
+  <!-- export -->
+  <rect x="24" y="600" width="312" height="48" rx="24" fill="#6650a4"/>
+  <text x="180" y="629" font-family="sans-serif" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">Export report</text>
+</svg>

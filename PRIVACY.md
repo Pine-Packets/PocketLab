@@ -186,8 +186,8 @@ We may update this privacy policy to reflect changes in the application or legal
 For privacy questions or concerns:
 
 **Pine and Packets LLC**  
-Email: privacy@pineandpackets.com  
-Website: https://pineandpackets.com
+Email: 310212849+Pine-Packets@users.noreply.github.com  
+Website: https://github.com/Pine-Packets/PocketLab
 
 ## Open Source
 

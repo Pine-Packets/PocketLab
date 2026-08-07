@@ -1,8 +1,15 @@
 # PocketLab Gap Analysis and Implementation Plan
 
 **Date:** 2026-08-05  
-**Status:** Critical gaps identified after codebase audit  
-**Actual Progress:** Phase 1-2 of 13 (not Phase 12 as claimed)
+**Status:** HISTORICAL - SUPERSEDED by `IMPLEMENTATION_STATUS.md`  
+**Actual Progress at time of writing:** Phase 1-2 of 13 (not Phase 12 as claimed)
+
+> **NOTE:** This document records the initial Phase 1-2 codebase audit. Since this
+> document was written the project has progressed through Phase 11 (native ELF
+> analysis) and now includes a deterministic parser-fuzzing harness (see
+> `IMPLEMENTATION_STATUS.md`). Treat the "❌ NOT IMPLEMENTED" items below as of
+> historical interest only; most were implemented in subsequent phases. The
+> authoritative, current state is `docs/IMPLEMENTATION_STATUS.md`.
 
 ---
 
